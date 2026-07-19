@@ -1,0 +1,141 @@
+/* =====================================================================
+   One Small Life — Design Tokens · Direction: TIDEPOOL
+   Flat vector · dark UI foundation · warm bioluminescent
+   Source of truth for CSS custom properties. Mirrored in tailwind.config.js.
+
+   Adapted from the design handoff (project/tokens.css). The only deliberate
+   change from the handoff is the font-family stacks: the self-hosted
+   @fontsource variable families register as "... Variable", so those names
+   lead each stack with the handoff's intended name kept as a fallback.
+   ===================================================================== */
+:root {
+  /* ---- Brand ---------------------------------------------------- */
+  --osl-brand:            #4fd4c4;   /* primary — bioluminescent teal   */
+  --osl-brand-hi:         #8fe9d6;   /* highlight / glow                */
+  --osl-brand-deep:       #2b9c8b;   /* pressed / shadow side           */
+  --osl-brand-ink:        #0b191d;   /* text on brand fills             */
+  --osl-secondary:        #f5b955;   /* amber — evolution / warmth      */
+  --osl-secondary-deep:   #d1963a;
+  --osl-accent:           #f2795f;   /* coral — life / alert accent     */
+  --osl-accent-deep:      #d15b44;
+
+  /* ---- Neutral foundation (teal-black) -------------------------- */
+  --osl-bg:               #061418;   /* app base — the tank             */
+  --osl-bg-2:             #0a2429;   /* recessed wells                  */
+  --osl-surface:          #0f2b30;   /* panel / card                    */
+  --osl-surface-2:        #12363c;   /* elevated panel                  */
+  --osl-surface-glass:    rgba(9,26,29,.72); /* floating HUD chips      */
+  --osl-border:           #1c3b42;   /* default hairline                */
+  --osl-border-soft:      #163037;   /* quiet divider                   */
+  --osl-border-glow:      rgba(120,200,190,.16); /* on-glass edge       */
+
+  /* ---- Text ----------------------------------------------------- */
+  --osl-text:             #eafbf7;   /* primary                         */
+  --osl-text-2:           #c6ddd9;   /* secondary / body                */
+  --osl-text-3:           #8fa8a4;   /* muted                           */
+  --osl-text-4:           #5f8f8a;   /* faint / captions                */
+  --osl-text-on-brand:    #06201d;
+
+  /* ---- Interactive --------------------------------------------- */
+  --osl-int:              #4fd4c4;
+  --osl-int-hover:        #6fe0d1;
+  --osl-int-active:       #2b9c8b;
+  --osl-focus-ring:       #8fe9d6;
+
+  /* ---- Status --------------------------------------------------- */
+  --osl-success:          #5fd39a;   /* thriving                        */
+  --osl-warning:          #f5b955;   /* strained                        */
+  --osl-danger:           #f2795f;   /* threatened                      */
+  --osl-info:             #6cc6e6;   /* neutral notice                  */
+
+  /* ---- Resources (paired with icon/shape, never colour alone) --- */
+  --osl-res-energy:       #f5b955;   /* ● amber   diamond               */
+  --osl-res-health:       #f2795f;   /* ● coral   circle                */
+  --osl-res-evolution:    #8fe9d6;   /* ● mint    spark                 */
+  --osl-res-food:         #c8e06a;   /* ● lime    leaf                  */
+  --osl-res-material:     #b79b7a;   /* ● clay    block                 */
+  --osl-res-research:     #6cc6e6;   /* ● sky     hex                   */
+
+  /* ---- Trait categories (colour + shape enforced in UI) --------- */
+  --osl-trait-bio:        #5fd39a;   /* biological    — leaf/drop       */
+  --osl-trait-behaviour:  #f5b955;   /* behavioural   — spark           */
+  --osl-trait-cultural:   #e08cc0;   /* cultural      — weave           */
+  --osl-trait-tech:       #6cc6e6;   /* technological — hex             */
+
+  /* ---- Relationships ------------------------------------------- */
+  --osl-rel-ally:         #5fd39a;
+  --osl-rel-neutral:      #8fa8a4;
+  --osl-rel-rival:        #f2795f;
+  --osl-rel-kin:          #f5b955;
+
+  /* ---- Map states (later stages) ------------------------------- */
+  --osl-map-owned:        #4fd4c4;
+  --osl-map-contested:    #f5b955;
+  --osl-map-hostile:      #f2795f;
+  --osl-map-unexplored:   #123037;
+
+  /* ---- Radii ---------------------------------------------------- */
+  --osl-r-xs: 6px;  --osl-r-sm: 9px;  --osl-r-md: 12px;
+  --osl-r-lg: 16px; --osl-r-xl: 22px; --osl-r-pill: 999px;
+
+  /* ---- Spacing (4px base) -------------------------------------- */
+  --osl-space-1: 4px;  --osl-space-2: 8px;  --osl-space-3: 12px;
+  --osl-space-4: 16px; --osl-space-5: 22px; --osl-space-6: 30px;
+  --osl-space-7: 44px; --osl-space-8: 64px;
+
+  /* ---- Borders ------------------------------------------------- */
+  --osl-border-w:      1px;
+  --osl-border-w-emph: 2px;
+
+  /* ---- Shadows / depth (soft, atmospheric) --------------------- */
+  --osl-shadow-1: 0 1px 2px rgba(0,0,0,.35);
+  --osl-shadow-2: 0 6px 18px rgba(0,0,0,.40);
+  --osl-shadow-3: 0 18px 48px rgba(0,0,0,.50);
+  --osl-glow-brand: 0 0 24px rgba(79,212,196,.35);
+  --osl-glow-amber: 0 0 20px rgba(245,185,85,.40);
+
+  /* ---- Opacity ------------------------------------------------- */
+  --osl-op-disabled: .40;
+  --osl-op-muted:    .64;
+  --osl-op-scrim:    .72;
+
+  /* ---- Typography ---------------------------------------------- */
+  --osl-font-display: "Bricolage Grotesque Variable", "Bricolage Grotesque", system-ui, sans-serif;
+  --osl-font-body:    "Hanken Grotesk Variable", "Hanken Grotesk", system-ui, sans-serif;
+  --osl-font-mono:    "Space Mono", ui-monospace, monospace;
+
+  --osl-fs-display: 46px; --osl-lh-display: 1.02;
+  --osl-fs-h1: 34px;      --osl-lh-h1: 1.08;
+  --osl-fs-h2: 26px;      --osl-lh-h2: 1.12;
+  --osl-fs-h3: 20px;      --osl-lh-h3: 1.2;
+  --osl-fs-body: 16px;    --osl-lh-body: 1.6;
+  --osl-fs-small: 14px;   --osl-lh-small: 1.5;
+  --osl-fs-label: 12px;   --osl-lh-label: 1.3;   /* uppercase .06em */
+  --osl-fs-tooltip: 12px; --osl-lh-tooltip: 1.4;
+  --osl-fs-num: 20px;     /* numeric HUD readouts, mono                */
+
+  /* ---- Motion (120–300ms UI) ---------------------------------- */
+  --osl-dur-fast:   120ms;
+  --osl-dur-base:   200ms;
+  --osl-dur-slow:   300ms;
+  --osl-dur-expressive: 600ms; /* evolution / stage transitions       */
+  --osl-ease:       cubic-bezier(.22,.61,.36,1);
+  --osl-ease-in:    cubic-bezier(.4,0,1,1);
+  --osl-ease-bounce:cubic-bezier(.34,1.56,.64,1);
+
+  /* ---- Z-index layers ----------------------------------------- */
+  --osl-z-world:    0;
+  --osl-z-hud:      100;
+  --osl-z-panel:    200;
+  --osl-z-overlay:  300;
+  --osl-z-modal:    400;
+  --osl-z-toast:    500;
+  --osl-z-tooltip:  600;
+}
+
+/* ---- Breakpoints (desktop + tablet first) ---------------------- */
+/* tablet: 768px   desktop: 1024px   wide: 1440px                    */
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --osl-dur-fast:0ms; --osl-dur-base:0ms; --osl-dur-slow:0ms; --osl-dur-expressive:0ms; }
+}

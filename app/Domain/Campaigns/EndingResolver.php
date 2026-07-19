@@ -1,0 +1,117 @@
+<?php
+
+namespace App\Domain\Campaigns;
+
+use App\Models\Campaign;
+
+/**
+ * Chooses one of the ending families (brief §21) from a campaign's accumulated
+ * traits — an ending is earned by the whole journey, not a single final choice.
+ * Deterministic: the same lineage always resolves to the same ending.
+ */
+class EndingResolver
+{
+    /**
+     * @return array{id: string, name: string, tagline: string, summary: string}
+     */
+    public static function resolve(Campaign $campaign): array
+    {
+        $traitIds = $campaign->traits()->pluck('trait_id')->all();
+        $has = fn (string $id) => in_array($id, $traitIds, true);
+
+        $scores = [
+            'federation' => 1, // baseline
+            'stewardship' => 0,
+            'empire' => 0,
+            'transcendence' => 0,
+            'isolation' => 0,
+        ];
+
+        // The ending is earned by the whole arc — cell AND creature choices.
+        if ($has('cognition:curious')) {
+            $scores['transcendence'] += 3;
+            $scores['federation'] += 1;
+        }
+        if ($has('biology:membrane_ii') || $has('biology:membrane_i')) {
+            $scores['empire'] += 2;
+        }
+        if ($has('feeding:filter')) {
+            $scores['stewardship'] += 2;
+        }
+        if ($has('biology:mucus_coat')) {
+            $scores['isolation'] += 2;
+        }
+        if ($has('movement:cilia') || $has('movement:flagellum')) {
+            $scores['federation'] += 2;
+        }
+        // Creature-stage adaptations weigh in too.
+        if ($has('creature:jaws')) {
+            $scores['empire'] += 3; // a predator's line
+        }
+        if ($has('creature:hide')) {
+            $scores['isolation'] += 2;
+            $scores['stewardship'] += 1; // enduring, self-reliant
+        }
+        if ($has('creature:legs') || $has('creature:swift')) {
+            $scores['federation'] += 2; // restless wanderers who reach outward
+        }
+        if ($has('creature:senses')) {
+            $scores['transcendence'] += 2; // a mind that reads the world
+        }
+        if ($has('creature:gut')) {
+            $scores['stewardship'] += 2; // frugal, in balance with the land
+        }
+
+        // Ties resolve deterministically by family order (empire never wins a
+        // tie over stewardship by accident): keysort as a stable tiebreak.
+        $max = max($scores);
+        $id = 'federation';
+        foreach ($scores as $family => $score) {
+            if ($score === $max) {
+                $id = $family;
+                break;
+            }
+        }
+
+        return array_merge(['id' => $id], self::FAMILIES[$id]);
+    }
+
+    /**
+     * All ending families keyed by id — the full set a player can discover
+     * across their lineages (the Chronicle's "families discovered" denominator).
+     *
+     * @return array<string,array{name:string,tagline:string,summary:string}>
+     */
+    public static function families(): array
+    {
+        return self::FAMILIES;
+    }
+
+    private const FAMILIES = [
+        'federation' => [
+            'name' => 'The Seedbearers',
+            'tagline' => 'Your lineage carried life to a new star.',
+            'summary' => 'Curious and connected, your people reached outward and bound distant worlds into a gentle federation of kin.',
+        ],
+        'stewardship' => [
+            'name' => 'The Tidekeepers',
+            'tagline' => 'Your lineage learned to tend a living world.',
+            'summary' => 'Patient and rooted, your people healed their world and carried its balance with them among the stars.',
+        ],
+        'empire' => [
+            'name' => 'The Farreach',
+            'tagline' => 'Your lineage spread its banner across the dark.',
+            'summary' => 'Resilient and bold, your people expanded relentlessly, claiming system after system for the lineage.',
+        ],
+        'transcendence' => [
+            'name' => 'The Lumenborn',
+            'tagline' => 'Your lineage became something more than flesh.',
+            'summary' => 'Endlessly curious, your people turned inward and upward until mind outgrew the body that first stirred in the shallows.',
+        ],
+        'isolation' => [
+            'name' => 'The Deepstill',
+            'tagline' => 'Your lineage chose a quiet, deliberate path.',
+            'summary' => 'Self-contained and content, your people withdrew into a chosen stillness, whole unto themselves among the stars.',
+        ],
+    ];
+}

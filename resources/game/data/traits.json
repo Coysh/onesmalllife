@@ -1,0 +1,360 @@
+{
+  "contentVersion": "0.1.0",
+  "traits": [
+    {
+      "id": "biology:membrane_i",
+      "name": "Toughened Membrane",
+      "description": "A denser membrane that shrugs off knocks.",
+      "category": "biological",
+      "stageIntroduced": "cell",
+      "requires": [],
+      "conflicts": [],
+      "cost": 2,
+      "benefits": [
+        "+ integrity capacity"
+      ],
+      "costs": [],
+      "tags": [
+        "biology:armoured"
+      ],
+      "effects": {
+        "integrityRegenPerSec": 0.9
+      },
+      "visualAttachments": {
+        "membrane": "ridged"
+      },
+      "rarity": "common",
+      "upgradeOf": null,
+      "inheritable": true
+    },
+    {
+      "id": "biology:membrane_ii",
+      "name": "Reinforced Membrane",
+      "description": "Layered walls that resist toxins and cold.",
+      "category": "biological",
+      "stageIntroduced": "cell",
+      "requires": [
+        "biology:membrane_i"
+      ],
+      "conflicts": [
+        "biology:mucus_coat"
+      ],
+      "cost": 3,
+      "benefits": [
+        "++ integrity capacity",
+        "+ cold tolerance"
+      ],
+      "costs": [
+        "- top speed"
+      ],
+      "tags": [
+        "biology:armoured",
+        "environment:cold"
+      ],
+      "effects": {
+        "integrityRegenPerSec": 1.4,
+        "speedMultiplier": -0.1
+      },
+      "visualAttachments": {
+        "membrane": "double"
+      },
+      "rarity": "uncommon",
+      "upgradeOf": "biology:membrane_i",
+      "inheritable": true
+    },
+    {
+      "id": "biology:mucus_coat",
+      "name": "Mucus Coat",
+      "description": "A slick coat that shrugs off grip but slows feeding.",
+      "category": "biological",
+      "stageIntroduced": "cell",
+      "requires": [],
+      "conflicts": [
+        "biology:membrane_ii"
+      ],
+      "cost": 2,
+      "benefits": [
+        "+ evasion"
+      ],
+      "costs": [
+        "- energy per feed"
+      ],
+      "tags": [
+        "biology:slippery"
+      ],
+      "effects": {
+        "energyPerMote": -2,
+        "speedMultiplier": 0.08
+      },
+      "visualAttachments": {
+        "defense": "mucus"
+      },
+      "rarity": "common",
+      "upgradeOf": null,
+      "inheritable": true
+    },
+    {
+      "id": "movement:cilia",
+      "name": "Beating Cilia",
+      "description": "A fringe of cilia for faster, smoother swimming.",
+      "category": "biological",
+      "stageIntroduced": "cell",
+      "requires": [],
+      "conflicts": [
+        "movement:flagellum"
+      ],
+      "cost": 2,
+      "benefits": [
+        "+ top speed"
+      ],
+      "costs": [
+        "+ energy drain"
+      ],
+      "tags": [
+        "movement:cilia"
+      ],
+      "effects": {
+        "speedMultiplier": 0.18,
+        "energyDrainPerSecMoving": 0.8
+      },
+      "visualAttachments": {
+        "movement": "cilia"
+      },
+      "rarity": "common",
+      "upgradeOf": null,
+      "inheritable": true
+    },
+    {
+      "id": "movement:flagellum",
+      "name": "Whip Flagellum",
+      "description": "A single powerful tail for bursts of speed.",
+      "category": "biological",
+      "stageIntroduced": "cell",
+      "requires": [],
+      "conflicts": [
+        "movement:cilia"
+      ],
+      "cost": 2,
+      "benefits": [
+        "++ top speed"
+      ],
+      "costs": [
+        "- fine control"
+      ],
+      "tags": [
+        "movement:flagellum"
+      ],
+      "effects": {
+        "speedMultiplier": 0.28
+      },
+      "visualAttachments": {
+        "movement": "flagellum"
+      },
+      "rarity": "common",
+      "upgradeOf": null,
+      "inheritable": true
+    },
+    {
+      "id": "feeding:filter",
+      "name": "Filter Feeder",
+      "description": "A feeding groove that wrings more from each nutrient.",
+      "category": "biological",
+      "stageIntroduced": "cell",
+      "requires": [],
+      "conflicts": [],
+      "cost": 3,
+      "benefits": [
+        "+ energy per feed"
+      ],
+      "costs": [],
+      "tags": [
+        "diet:filter"
+      ],
+      "effects": {
+        "energyPerMote": 4
+      },
+      "visualAttachments": {
+        "feeding": "filter"
+      },
+      "rarity": "common",
+      "upgradeOf": null,
+      "inheritable": true
+    },
+    {
+      "id": "cognition:curious",
+      "name": "Curious",
+      "description": "A restless drive to explore — the seed of intelligence.",
+      "category": "behavioural",
+      "stageIntroduced": "cell",
+      "requires": [],
+      "conflicts": [],
+      "cost": 2,
+      "benefits": [
+        "+ evolution from feeding"
+      ],
+      "costs": [],
+      "tags": [
+        "cognition:curious"
+      ],
+      "effects": {
+        "evolutionPerMote": 1
+      },
+      "visualAttachments": {
+        "sensory": "stalk_eye"
+      },
+      "rarity": "uncommon",
+      "upgradeOf": null,
+      "inheritable": true
+    },
+    {
+      "id": "creature:legs",
+      "name": "Powerful Legs",
+      "description": "Long, muscled legs for a faster gait.",
+      "category": "biological",
+      "stageIntroduced": "creature",
+      "requires": [],
+      "conflicts": [],
+      "cost": 3,
+      "benefits": [
+        "+ speed"
+      ],
+      "costs": [
+        "+ energy per stride"
+      ],
+      "tags": [],
+      "effects": {
+        "speedMultiplier": 0.15
+      },
+      "visualAttachments": {
+        "movement": "fin"
+      },
+      "rarity": "common",
+      "upgradeOf": null,
+      "inheritable": true
+    },
+    {
+      "id": "creature:swift",
+      "name": "Fleet Instinct",
+      "description": "Reflexes honed for the chase — and the escape.",
+      "category": "biological",
+      "stageIntroduced": "creature",
+      "requires": [
+        "creature:legs"
+      ],
+      "conflicts": [],
+      "cost": 4,
+      "benefits": [
+        "++ speed"
+      ],
+      "costs": [],
+      "tags": [],
+      "effects": {
+        "speedMultiplier": 0.12
+      },
+      "visualAttachments": {
+        "movement": "flagellum"
+      },
+      "rarity": "uncommon",
+      "upgradeOf": "creature:legs",
+      "inheritable": true
+    },
+    {
+      "id": "creature:jaws",
+      "name": "Strong Jaws",
+      "description": "Powerful jaws draw more from every meal.",
+      "category": "biological",
+      "stageIntroduced": "creature",
+      "requires": [],
+      "conflicts": [],
+      "cost": 3,
+      "benefits": [
+        "+ nourishment per bite"
+      ],
+      "costs": [],
+      "tags": [],
+      "effects": {
+        "evolutionPerMote": 1
+      },
+      "visualAttachments": {
+        "feeding": "gullet"
+      },
+      "rarity": "common",
+      "upgradeOf": null,
+      "inheritable": true
+    },
+    {
+      "id": "creature:gut",
+      "name": "Efficient Gut",
+      "description": "A longer gut wrings fullness from less food.",
+      "category": "biological",
+      "stageIntroduced": "creature",
+      "requires": [],
+      "conflicts": [],
+      "cost": 2,
+      "benefits": [
+        "+ fullness per bite"
+      ],
+      "costs": [],
+      "tags": [],
+      "effects": {
+        "energyPerMote": 8
+      },
+      "visualAttachments": {},
+      "rarity": "common",
+      "upgradeOf": null,
+      "inheritable": true
+    },
+    {
+      "id": "creature:hide",
+      "name": "Thick Hide",
+      "description": "A tough, layered hide that knits wounds fast.",
+      "category": "biological",
+      "stageIntroduced": "creature",
+      "requires": [],
+      "conflicts": [],
+      "cost": 3,
+      "benefits": [
+        "+ health recovery"
+      ],
+      "costs": [
+        "- top speed"
+      ],
+      "tags": [],
+      "effects": {
+        "integrityRegenPerSec": 1.4,
+        "speedMultiplier": -0.05
+      },
+      "visualAttachments": {
+        "defense": "thick_wall"
+      },
+      "rarity": "common",
+      "upgradeOf": null,
+      "inheritable": true
+    },
+    {
+      "id": "creature:senses",
+      "name": "Keen Senses",
+      "description": "Sharp eyes and ears read the land a beat sooner.",
+      "category": "biological",
+      "stageIntroduced": "creature",
+      "requires": [],
+      "conflicts": [],
+      "cost": 2,
+      "benefits": [
+        "+ awareness",
+        "+ speed"
+      ],
+      "costs": [],
+      "tags": [],
+      "effects": {
+        "speedMultiplier": 0.05
+      },
+      "visualAttachments": {
+        "sensory": "antenna"
+      },
+      "rarity": "common",
+      "upgradeOf": null,
+      "inheritable": true
+    }
+  ]
+}

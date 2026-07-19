@@ -1,0 +1,125 @@
+/* =====================================================================
+   One Small Life — application stylesheet
+   Order matters: @import rules must precede everything else, so fonts and
+   tokens are pulled in before the Tailwind layers. Vite inlines the
+   node_modules @import specifiers at build time (no CDN dependency).
+   ===================================================================== */
+
+/* ---- Self-hosted fonts (OFL licensed, via @fontsource) ------------- */
+@import '@fontsource-variable/bricolage-grotesque/wght.css';
+@import '@fontsource-variable/hanken-grotesk/wght.css';
+@import '@fontsource/space-mono/400.css';
+@import '@fontsource/space-mono/700.css';
+
+/* ---- Design tokens (CSS custom properties) ------------------------- */
+@import './tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---- Tidepool base layer ------------------------------------------- */
+@layer base {
+    html {
+        -webkit-text-size-adjust: 100%;
+    }
+
+    /* The HTML `hidden` attribute must always win, even over display utilities
+       like `flex` that would otherwise override it by source order. */
+    [hidden] {
+        display: none !important;
+    }
+
+    body {
+        min-height: 100vh;
+        background-color: var(--osl-bg);
+        color: var(--osl-text-2);
+        font-family: var(--osl-font-body);
+        font-size: var(--osl-fs-body);
+        line-height: var(--osl-lh-body);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+
+    h1, h2, h3 {
+        font-family: var(--osl-font-display);
+        color: var(--osl-text);
+    }
+
+    ::selection {
+        background: rgba(79, 212, 196, 0.28);
+        color: var(--osl-text);
+    }
+
+    /* Visible, token-coloured focus ring for keyboard users. */
+    :focus-visible {
+        outline: 2px solid var(--osl-focus-ring);
+        outline-offset: 2px;
+        border-radius: var(--osl-r-xs);
+    }
+}
+
+/* ---- Ambient motion (Tidepool) ------------------------------------- */
+@layer components {
+    /* Organism / mark gently floating in the tank. */
+    .osl-float {
+        animation: osl-float 7s ease-in-out infinite;
+    }
+
+    @keyframes osl-float {
+        0%, 100% { transform: translateY(0); }
+        50%      { transform: translateY(-6px); }
+    }
+
+    /* Drifting bioluminescent motes. */
+    .osl-motes span {
+        position: absolute;
+        display: block;
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: radial-gradient(circle, rgba(143,233,214,.9), rgba(79,212,196,0));
+        opacity: 0.5;
+        animation: osl-drift 14s linear infinite;
+    }
+    .osl-motes span:nth-child(1) { left: 12%; top: 70%; animation-duration: 16s; animation-delay: -2s; }
+    .osl-motes span:nth-child(2) { left: 28%; top: 85%; animation-duration: 19s; animation-delay: -6s; }
+    .osl-motes span:nth-child(3) { left: 48%; top: 78%; animation-duration: 13s; animation-delay: -1s; }
+    .osl-motes span:nth-child(4) { left: 66%; top: 88%; animation-duration: 21s; animation-delay: -9s; }
+    .osl-motes span:nth-child(5) { left: 80%; top: 72%; animation-duration: 17s; animation-delay: -4s; }
+    .osl-motes span:nth-child(6) { left: 92%; top: 82%; animation-duration: 15s; animation-delay: -7s; }
+
+    @keyframes osl-drift {
+        0%   { transform: translateY(0) translateX(0); opacity: 0; }
+        10%  { opacity: 0.5; }
+        90%  { opacity: 0.5; }
+        100% { transform: translateY(-60vh) translateX(14px); opacity: 0; }
+    }
+}
+
+/* Reduced motion: hold everything still, keep the scene legible. */
+@media (prefers-reduced-motion: reduce) {
+    .osl-float,
+    .osl-motes span {
+        animation: none;
+    }
+    .osl-motes span { opacity: 0.4; }
+}
+
+/* Setting-forced reduced motion mirrors the media query. */
+.osl-reduce-motion .osl-float,
+.osl-reduce-motion .osl-motes span {
+    animation: none !important;
+}
+.osl-reduce-motion .osl-motes span { opacity: 0.4; }
+.osl-reduce-motion *,
+.osl-reduce-motion *::before,
+.osl-reduce-motion *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+}
+
+/* High-contrast: lift body copy to the primary text colour. */
+.osl-contrast body {
+    color: var(--osl-text);
+}

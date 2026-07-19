@@ -1,0 +1,80 @@
+{
+    "$schema": "One Small Life — live cell part catalogue (see cell-parts.schema.json for the authoring grammar)",
+    "version": 2,
+    "notes": "Single source of truth for the pre-creation builder, server-side validation (PartCatalog.php), portraits (PortraitComposer.php) and in-game stat effects (systems/partEffects.ts). Effect keys: speed (multiplier delta), attack, defense, senseRadius (px delta), energyPerMote (delta), energyDrain (per-sec delta while moving), integrityRegen (per-sec delta).",
+    "slots": {
+        "body": [
+            { "id": "oval", "label": "Oval", "blurb": "A balanced, dependable form.", "rx": 34, "ry": 30, "effects": {} },
+            { "id": "round", "label": "Round", "blurb": "Compact and sturdy.", "rx": 32, "ry": 32, "effects": { "defense": 2, "speed": -0.03 } },
+            { "id": "teardrop", "label": "Teardrop", "blurb": "Tapered for slipping through water.", "rx": 36, "ry": 27, "effects": { "speed": 0.06, "defense": -1 } },
+            { "id": "kidney", "label": "Kidney", "blurb": "A folded gut digests more from each meal.", "rx": 35, "ry": 29, "effects": { "energyPerMote": 1 } },
+            { "id": "elongated", "label": "Elongated", "blurb": "Streamlined — fast but fragile.", "rx": 40, "ry": 24, "effects": { "speed": 0.12, "defense": -2 } },
+            { "id": "lobed", "label": "Lobed", "blurb": "Redundant lobes knit damage closed.", "rx": 33, "ry": 31, "effects": { "integrityRegen": 0.3 } },
+            { "id": "angular", "label": "Angular", "blurb": "Hard edges that bite back.", "rx": 34, "ry": 28, "effects": { "attack": 3, "speed": -0.03 } },
+            { "id": "twin", "label": "Twin", "blurb": "A tall, double-cored body that feeds well.", "rx": 30, "ry": 33, "effects": { "energyPerMote": 2, "speed": -0.05 } }
+        ],
+        "membrane": [
+            { "id": "smooth", "label": "Smooth", "blurb": "A simple, light envelope.", "effects": {} },
+            { "id": "ridged", "label": "Ridged", "blurb": "Structural ridges shrug off blows.", "effects": { "defense": 3 } },
+            { "id": "softspike", "label": "Softspike", "blurb": "Fine barbs make you unpleasant to bite.", "effects": { "attack": 4, "defense": 1, "speed": -0.04 } },
+            { "id": "double", "label": "Double wall", "blurb": "Two layers — heavy but tough.", "effects": { "defense": 5, "speed": -0.06 } },
+            { "id": "granular", "label": "Granular", "blurb": "Self-sealing grains repair the wall.", "effects": { "integrityRegen": 0.4 } },
+            { "id": "wavy", "label": "Wavy", "blurb": "An undulating rim aids swimming.", "effects": { "speed": 0.05 } }
+        ],
+        "feeding": [
+            { "id": "filter", "label": "Filter", "blurb": "Strains extra nutrients from every mote.", "effects": { "energyPerMote": 2 } },
+            { "id": "gullet", "label": "Gullet", "blurb": "Swallows big meals whole — slowly.", "effects": { "energyPerMote": 4, "speed": -0.05 } },
+            { "id": "pseudopod", "label": "Pseudopod", "blurb": "Engulfing arms double as weapons.", "effects": { "attack": 3 } },
+            { "id": "groove", "label": "Groove", "blurb": "A frugal feeding channel — burns less to move.", "effects": { "energyDrain": -0.5 } },
+            { "id": "proboscis", "label": "Proboscis", "blurb": "A piercing tube: rich meals, a sharp point.", "effects": { "energyPerMote": 3, "attack": 1 } },
+            { "id": "pore", "label": "Pore", "blurb": "Passive intake — very cheap, less filling.", "effects": { "energyDrain": -0.8, "energyPerMote": -1 } }
+        ],
+        "movement": [
+            { "id": "cilia", "label": "Cilia", "blurb": "A steady fringe of beating hairs.", "effects": { "speed": 0.05 } },
+            { "id": "flagellum", "label": "Flagellum", "blurb": "A whip tail — quick, a little hungry.", "effects": { "speed": 0.12, "energyDrain": 0.4 } },
+            { "id": "twin_flagella", "label": "Twin flagella", "blurb": "Two whips. Fast, and it costs.", "effects": { "speed": 0.2, "energyDrain": 0.9 } },
+            { "id": "pseudopods", "label": "Pseudopods", "blurb": "Slow oozing crawl with a stable hide.", "effects": { "speed": -0.05, "defense": 2 } },
+            { "id": "fin", "label": "Fin", "blurb": "An undulating membrane fin.", "effects": { "speed": 0.09 } },
+            { "id": "jet", "label": "Jet", "blurb": "Pulse propulsion — blistering, exhausting.", "effects": { "speed": 0.28, "energyDrain": 1.6 } }
+        ],
+        "sensory": [
+            { "id": "eyespot", "label": "Eyespot", "blurb": "A simple light-sensitive dot.", "effects": { "senseRadius": 80 } },
+            { "id": "photosensor", "label": "Photosensor", "blurb": "Reads shadows before they arrive.", "effects": { "senseRadius": 140 } },
+            { "id": "chemobristle", "label": "Chemobristle", "blurb": "Tastes the water for food trails.", "effects": { "senseRadius": 100, "energyPerMote": 1 } },
+            { "id": "stalk_eye", "label": "Stalk eye", "blurb": "A raised eye with a wide view — exposed.", "effects": { "senseRadius": 200, "defense": -1 } },
+            { "id": "pit", "label": "Sensory pit", "blurb": "Feels pressure waves from movement.", "effects": { "senseRadius": 120 } },
+            { "id": "antenna", "label": "Antenna", "blurb": "Long-range awareness; a little drag.", "effects": { "senseRadius": 260, "speed": -0.03 } }
+        ],
+        "defense": [
+            { "id": "none", "label": "None", "blurb": "Trust to speed and luck.", "effects": {} },
+            { "id": "toxin_sac", "label": "Toxin sac", "blurb": "Venom makes every touch count.", "effects": { "attack": 6 } },
+            { "id": "spike_ring", "label": "Spike ring", "blurb": "A crown of spikes — offense and armour.", "effects": { "attack": 4, "defense": 3, "speed": -0.04 } },
+            { "id": "thick_wall", "label": "Thick wall", "blurb": "Heavy plating. Slow and safe.", "effects": { "defense": 6, "speed": -0.08 } },
+            { "id": "mucus", "label": "Mucus coat", "blurb": "A slippery sheath blunts attacks.", "effects": { "defense": 4 } },
+            { "id": "spines", "label": "Spines", "blurb": "Long lances for a hunter's life.", "effects": { "attack": 8, "speed": -0.05 } },
+            { "id": "camouflage", "label": "Camouflage", "blurb": "Blend in; see trouble a beat sooner.", "effects": { "defense": 2, "senseRadius": 60 } }
+        ],
+        "pattern": [
+            { "id": "plain", "label": "Plain", "blurb": "Unmarked.", "effects": {} },
+            { "id": "speckle", "label": "Speckle", "blurb": "Scattered flecks.", "effects": {} },
+            { "id": "stripe", "label": "Stripe", "blurb": "Flowing bands.", "effects": {} },
+            { "id": "ring", "label": "Ring", "blurb": "A bold halo.", "effects": {} },
+            { "id": "gradient", "label": "Gradient", "blurb": "A soft tonal wash.", "effects": {} },
+            { "id": "mottle", "label": "Mottle", "blurb": "Cloudy blotches.", "effects": {} },
+            { "id": "radial", "label": "Radial", "blurb": "Spokes from the core.", "effects": {} },
+            { "id": "dotcore", "label": "Dot core", "blurb": "A dotted heart.", "effects": {} }
+        ]
+    },
+    "palettes": [
+        { "name": "Warm shallows", "albedo": "#c98f5a", "accent": "#f2b56a", "detail": "#7a4a2a" },
+        { "name": "Teal", "albedo": "#4fd4c4", "accent": "#8fe9d6", "detail": "#2b9c8b" },
+        { "name": "Sky", "albedo": "#6cc6e6", "accent": "#bfe8f5", "detail": "#2f6f8a" },
+        { "name": "Lime", "albedo": "#c8e06a", "accent": "#e6f5a8", "detail": "#6f8a2f" },
+        { "name": "Orchid", "albedo": "#e08cc0", "accent": "#f5c8e2", "detail": "#8a2f6f" },
+        { "name": "Coral", "albedo": "#f2795f", "accent": "#f6b0a2", "detail": "#8a2f28" }
+    ],
+    "legacy": {
+        "bodyByIndex": ["oval", "elongated", "twin", "lobed"],
+        "defaults": { "membrane": "smooth", "feeding": "filter", "movement": "cilia", "sensory": "eyespot", "defense": "none" }
+    }
+}

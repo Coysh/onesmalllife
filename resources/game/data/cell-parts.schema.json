@@ -1,0 +1,104 @@
+{
+  "$schema": "One Small Life — modular organism attachment schema",
+  "version": "1.0.0",
+  "stage": "cell",
+  "notes": "Normalised coordinates (0..1) within the part canvas. Phaser composes a Container of layered Sprites; each Sprite is positioned so its own `pivot` lands on the named attachment point. Albedo layers are greyscale masks recoloured with setTint (multiplicative) or pre-baked palette variants. Text is NEVER baked into assets.",
+
+  "canvas": { "width": 256, "height": 256, "safeInset": 16 },
+
+  "baseDimensions": {
+    "displaySize": 160,
+    "portraitSize": 128,
+    "minSize": 40,
+    "hitboxRadiusNorm": 0.42,
+    "hitboxShape": "circle"
+  },
+
+  "layerOrder": [
+    "shadow",
+    "movement_rear",
+    "body_albedo",
+    "pattern_overlay",
+    "organelles",
+    "membrane",
+    "feeding",
+    "sensory",
+    "defense_overlay",
+    "movement_front",
+    "highlight"
+  ],
+
+  "anchors": {
+    "center":   { "x": 0.50, "y": 0.50, "desc": "Body pivot + container origin" },
+    "nucleus":  { "x": 0.44, "y": 0.47, "desc": "Primary organelle" },
+    "feeding":  { "x": 0.84, "y": 0.50, "desc": "Leading edge — mouth/feeding organ, mirrors with facing" },
+    "sensory":  { "x": 0.70, "y": 0.28, "desc": "Front-upper — eyespot / receptor" },
+    "movement": { "x": 0.14, "y": 0.50, "desc": "Trailing edge — flagellum; cilia use the full rim path" },
+    "rim":      { "path": "membrane", "desc": "Membrane + cilia follow the body outline path, not a point" }
+  },
+
+  "maxParts": {
+    "body": 1, "membrane": 1, "feeding": 1, "movement": 1,
+    "sensory": 2, "defense": 1, "pattern": 1, "palette": 1
+  },
+
+  "mirroring": {
+    "facing": "right",
+    "rule": "Flip the whole container on X to face left; feeding/sensory anchors mirror automatically. Never mirror an individual asymmetric part on its own — flip at the container level so highlights stay lit from the same side.",
+    "lightDirection": "top-left"
+  },
+
+  "colorMask": {
+    "approach": "Two-layer: tintable greyscale `albedo` (mid-grey base so multiplicative setTint reads true) + separate `detail` layer at fixed colour for shading/organelles.",
+    "tintTargets": ["body_albedo", "membrane", "movement_front"],
+    "fixedLayers": ["organelles", "highlight", "pattern_overlay"],
+    "note": "setTint is multiplicative — author albedo at ~#B8B8B8 so a #4FD4C4 tint lands on-palette, not darkened."
+  },
+
+  "patternOverlay": {
+    "clip": "masked to body_albedo shape",
+    "blend": "multiply | soft-light",
+    "opacityRange": [0.25, 0.6],
+    "recolour": "inherits palette accent, never full-strength"
+  },
+
+  "shadow": {
+    "type": "soft ellipse",
+    "offsetNorm": { "x": 0.0, "y": 0.06 },
+    "opacity": 0.28,
+    "blurNorm": 0.05,
+    "note": "Single shared shadow primitive scaled to body bounds — never per-part shadows."
+  },
+
+  "coherenceRules": [
+    "One palette per organism; parts pull tint from the shared palette, never their own hardcoded hue.",
+    "One pattern only; pattern accent must come from the same palette.",
+    "Membrane style must be compatible with body silhouette (no spiked membrane on a smooth-jelly body).",
+    "Feeding + movement are mutually constrained pairs (cilia-rim excludes single flagellum).",
+    "Max 2 sensory parts; both share the same sensory family look.",
+    "All parts authored at the same stroke weight + corner radius language (rounded-organic).",
+    "Light always from top-left; no part carries a conflicting highlight.",
+    "Silhouette test: organism must read as one shape at 40px, not a pile of parts."
+  ],
+
+  "portraitMethod": {
+    "source": "same modular parts",
+    "framing": "portraitSize canvas, body centred, scaled to 0.8 of frame, facing right, neutral pattern lighting",
+    "background": "transparent (UI supplies the ring/frame)",
+    "rule": "Portraits are COMPOSED from the identical part set at a fixed camera — never separate raster art — so the portrait always matches the in-game organism."
+  },
+
+  "parts": {
+    "body":     { "count": 8, "ids": ["oval","round","teardrop","kidney","elongated","lobed","angular","twin"] },
+    "membrane": { "count": 6, "ids": ["smooth","ridged","softspike","double","granular","wavy"] },
+    "feeding":  { "count": 6, "ids": ["filter","gullet","pseudopod","groove","proboscis","pore"] },
+    "movement": { "count": 6, "ids": ["cilia","flagellum","twin_flagella","pseudopods","fin","jet"] },
+    "sensory":  { "count": 6, "ids": ["eyespot","photosensor","chemobristle","stalk_eye","pit","antenna"] },
+    "defense":  { "count": 6, "ids": ["toxin_sac","spike_ring","thick_wall","mucus","spines","camouflage"] },
+    "pattern":  { "count": 8, "ids": ["plain","speckle","stripe","ring","gradient","mottle","radial","dotcore"] },
+    "palette":  { "count": 12 }
+  },
+
+  "namingConvention": "stage_category_asset_variant_state.ext",
+  "examples": ["cell_body_oval_01.svg", "cell_membrane_ridged_01.svg", "cell_feeding_filter_02.svg", "cell_movement_cilia_01.svg"]
+}

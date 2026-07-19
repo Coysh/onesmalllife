@@ -1,0 +1,2078 @@
+{
+  "contentVersion": "0.2.0",
+  "stages": {
+    "tribe": {
+      "id": "tribe",
+      "title": "Stage 3 · Tribe",
+      "subtitle": "Gather your people, build shelter, and grow a culture.",
+      "diplomacy": [
+        {
+          "id": "fac_share_fire",
+          "label": "Share our fire",
+          "description": "Offer warmth and a meal. Old grudges soften over food.",
+          "kind": "emissary",
+          "costResource": "food",
+          "cost": 10
+        },
+        {
+          "id": "fac_barter",
+          "label": "Barter hides and flint",
+          "description": "Swap what you have spare for what they have spare.",
+          "kind": "trade",
+          "costResource": "materials",
+          "cost": 6
+        },
+        {
+          "id": "fac_ill_word",
+          "label": "Spread ill word of them",
+          "description": "Let the other camps hear of their cruelty. They will guess who talked.",
+          "kind": "undermine",
+          "costResource": "food",
+          "cost": 10
+        },
+        {
+          "id": "fac_palisade",
+          "label": "Raise a palisade",
+          "description": "Stakes and thorn against their next raid.",
+          "kind": "fortify",
+          "costResource": "materials",
+          "cost": 10
+        },
+        {
+          "id": "fac_drive_off",
+          "label": "Drive them from the valley",
+          "description": "Send your hunters. Weaken them first, and expect to lose people.",
+          "kind": "conquer",
+          "costResource": "people",
+          "cost": 2
+        }
+      ],
+      "resources": [
+        {
+          "id": "food",
+          "label": "Food",
+          "start": 25,
+          "perTick": 1.2
+        },
+        {
+          "id": "materials",
+          "label": "Materials",
+          "start": 12,
+          "perTick": 0.6
+        },
+        {
+          "id": "people",
+          "label": "People",
+          "start": 6,
+          "perTick": 0
+        },
+        {
+          "id": "culture",
+          "label": "Culture",
+          "start": 0,
+          "perTick": 0
+        }
+      ],
+      "actions": [
+        {
+          "id": "huts",
+          "label": "Build huts",
+          "description": "Shelter lets more of your kind survive and settle.",
+          "cost": {
+            "materials": 10
+          },
+          "grants": {},
+          "rate": {
+            "people": 0.15
+          },
+          "requires": [],
+          "once": true,
+          "anchor": "home"
+        },
+        {
+          "id": "forage",
+          "label": "Organise foraging",
+          "description": "Coordinated foraging steadies the food supply.",
+          "cost": {
+            "food": 5
+          },
+          "grants": {},
+          "rate": {
+            "food": 0.9
+          },
+          "requires": [],
+          "once": true,
+          "anchor": "site:grove"
+        },
+        {
+          "id": "tools",
+          "label": "Learn toolmaking",
+          "description": "Better tools mean more materials from the land.",
+          "cost": {
+            "materials": 8
+          },
+          "grants": {},
+          "rate": {
+            "materials": 0.6
+          },
+          "requires": [],
+          "once": true,
+          "anchor": "site:flint"
+        },
+        {
+          "id": "scout",
+          "label": "Send scouts",
+          "description": "Push back the unknown — find resources and rivals before they find you.",
+          "cost": {
+            "food": 8
+          },
+          "grants": {},
+          "rate": {},
+          "requires": [],
+          "once": false,
+          "special": "scout"
+        },
+        {
+          "id": "songs",
+          "label": "Gathering songs",
+          "description": "Shared songs are the first thread of culture.",
+          "cost": {
+            "food": 20
+          },
+          "grants": {},
+          "rate": {
+            "culture": 0.14
+          },
+          "requires": [
+            "huts"
+          ],
+          "once": true,
+          "anchor": "home"
+        },
+        {
+          "id": "rituals",
+          "label": "Seasonal rituals",
+          "description": "Rituals bind the tribe and deepen its identity.",
+          "cost": {
+            "food": 30,
+            "materials": 15
+          },
+          "grants": {},
+          "rate": {
+            "culture": 0.25
+          },
+          "requires": [
+            "songs"
+          ],
+          "once": true,
+          "anchor": "home"
+        },
+        {
+          "id": "totem",
+          "label": "Raise a totem",
+          "description": "A great totem tells your story to every traveller.",
+          "cost": {
+            "materials": 35,
+            "food": 20
+          },
+          "grants": {
+            "culture": 5
+          },
+          "rate": {
+            "culture": 0.2
+          },
+          "requires": [
+            "rituals"
+          ],
+          "once": true,
+          "anchor": "home"
+        }
+      ],
+      "objective": {
+        "resource": "culture",
+        "target": 120,
+        "label": "Establish the tribe's culture"
+      },
+      "map": {
+        "style": "tribal",
+        "home": {
+          "x": 0.24,
+          "y": 0.55
+        },
+        "sites": [
+          {
+            "id": "grove",
+            "label": "Foraging grove",
+            "x": 0.42,
+            "y": 0.3,
+            "kind": "resource",
+            "resource": "food"
+          },
+          {
+            "id": "flint",
+            "label": "Flint beds",
+            "x": 0.5,
+            "y": 0.72,
+            "kind": "resource",
+            "resource": "materials"
+          },
+          {
+            "id": "river",
+            "label": "The long river",
+            "x": 0.66,
+            "y": 0.5,
+            "kind": "resource",
+            "resource": "food"
+          },
+          {
+            "id": "caves",
+            "label": "Painted caves",
+            "x": 0.84,
+            "y": 0.74,
+            "kind": "resource",
+            "resource": "culture"
+          },
+          {
+            "id": "saltflat",
+            "label": "Salt flats",
+            "x": 0.13,
+            "y": 0.83,
+            "kind": "resource",
+            "resource": "materials"
+          },
+          {
+            "id": "thicket",
+            "label": "Berry thicket",
+            "x": 0.58,
+            "y": 0.12,
+            "kind": "resource",
+            "resource": "food"
+          }
+        ]
+      },
+      "rivals": [
+        {
+          "id": "ashfolk",
+          "name": "the Ashfolk",
+          "x": 0.74,
+          "y": 0.26,
+          "archetype": "aggressive",
+          "strength": 24,
+          "hidden": false
+        },
+        {
+          "id": "reedborn",
+          "name": "the Reedborn",
+          "x": 0.55,
+          "y": 0.85,
+          "archetype": "trader",
+          "strength": 18,
+          "hidden": true
+        },
+        {
+          "id": "stonekin",
+          "name": "the Stonekin",
+          "x": 0.9,
+          "y": 0.5,
+          "archetype": "builder",
+          "strength": 20,
+          "hidden": true
+        },
+        {
+          "id": "duskrunners",
+          "name": "the Duskrunners",
+          "x": 0.35,
+          "y": 0.14,
+          "archetype": "aggressive",
+          "strength": 30,
+          "hidden": false,
+          "emergesAt": 180
+        },
+        {
+          "id": "sunless",
+          "name": "the Sunless",
+          "x": 0.12,
+          "y": 0.3,
+          "archetype": "builder",
+          "strength": 16,
+          "hidden": true
+        }
+      ],
+      "fog": {
+        "enabled": true,
+        "revealRadius": 0.16
+      },
+      "mechanics": {
+        "conquest": true
+      },
+      "onboarding": [
+        {
+          "id": "welcome",
+          "title": "Your first fire",
+          "text": "Your tribe gathers at the hearth. Resources grow on their own — spend them on decisions to grow faster and build a culture."
+        },
+        {
+          "id": "fog",
+          "title": "The unknown",
+          "text": "The world beyond your firelight is dark. Send scouts to reveal resource sites and the rivals who share this land."
+        },
+        {
+          "id": "rivals",
+          "title": "You are not alone",
+          "text": "Rival tribes grow alongside you. Trade with the friendly, guard against the hostile — raiders will march on your camp."
+        }
+      ],
+      "events": [
+        {
+          "id": "drought",
+          "title": "A hard season",
+          "description": "The rains fail and the foraging grounds wither.",
+          "visual": {
+            "kind": "drought",
+            "tint": "#f2b56a"
+          },
+          "choices": [
+            {
+              "label": "Ration carefully",
+              "effects": {
+                "food": -10
+              },
+              "note": "Rationed through the drought."
+            },
+            {
+              "label": "Range further afield",
+              "effects": {
+                "food": 6,
+                "people": -1
+              },
+              "note": "Ranged far — and lost one to the wild."
+            }
+          ]
+        },
+        {
+          "id": "newcomers",
+          "title": "Wanderers arrive",
+          "description": "A band of wanderers asks to join your fire.",
+          "visual": {
+            "kind": "arrival",
+            "sprite": "wanderer",
+            "count": 3
+          },
+          "choices": [
+            {
+              "label": "Welcome them",
+              "effects": {
+                "people": 3,
+                "food": -8
+              },
+              "note": "Welcomed the wanderers."
+            },
+            {
+              "label": "Send them on",
+              "effects": {
+                "culture": 4
+              },
+              "note": "Kept to your own — traditions held firm."
+            }
+          ]
+        },
+        {
+          "id": "great_herd",
+          "title": "A great herd passes",
+          "description": "Thundering beasts cross the plain — a season of plenty, if you dare the hunt.",
+          "visual": {
+            "kind": "migration",
+            "sprite": "beast",
+            "count": 5
+          },
+          "choices": [
+            {
+              "label": "Mount a great hunt",
+              "effects": {
+                "food": 18,
+                "people": -1
+              },
+              "note": "The great hunt fed the tribe — at a cost."
+            },
+            {
+              "label": "Follow and gather",
+              "effects": {
+                "food": 8,
+                "culture": 2
+              },
+              "note": "Followed the herd; the trackers learned its songs."
+            }
+          ]
+        },
+        {
+          "id": "omen",
+          "title": "A sky omen",
+          "description": "A burning light crosses the night sky. The tribe looks to you.",
+          "visual": {
+            "kind": "omen",
+            "tint": "#f5b955"
+          },
+          "choices": [
+            {
+              "label": "Declare it a blessing",
+              "effects": {
+                "culture": 6,
+                "food": -5
+              },
+              "note": "A feast for the blessing — spirits soared."
+            },
+            {
+              "label": "Read it as warning",
+              "effects": {
+                "materials": 6
+              },
+              "note": "The tribe stockpiled against the warning."
+            }
+          ]
+        },
+        {
+          "id": "wildfire",
+          "title": "Wildfire on the ridge",
+          "description": "Flames race across the dry ridge toward your stores.",
+          "visual": {
+            "kind": "storm",
+            "tint": "#f27a4a"
+          },
+          "choices": [
+            {
+              "label": "Beat back the fire",
+              "effects": {
+                "materials": -8
+              },
+              "note": "Fought the flames — the stores held."
+            },
+            {
+              "label": "Grab what you can and flee",
+              "effects": {
+                "materials": -3,
+                "food": -4
+              },
+              "note": "Fled the smoke with what you could carry."
+            }
+          ]
+        },
+        {
+          "id": "rivers_gift",
+          "severity": "minor",
+          "title": "The river's gift",
+          "description": "Spring floods leave the banks thick with fish and reeds.",
+          "visual": {
+            "kind": "harvest",
+            "tint": "#7fc8e0",
+            "count": 12
+          },
+          "choices": [
+            {
+              "label": "Feast tonight",
+              "effects": {
+                "food": 10
+              },
+              "note": "A feast — the tribe sang late into the night."
+            },
+            {
+              "label": "Smoke and store",
+              "effects": {
+                "food": 6,
+                "materials": 3
+              },
+              "note": "Smoked the catch and cut new reeds."
+            }
+          ]
+        },
+        {
+          "id": "storyteller",
+          "title": "A wandering storyteller",
+          "description": "A stranger offers songs and tales gathered at distant fires.",
+          "visual": {
+            "kind": "festival",
+            "tint": "#f5c96a"
+          },
+          "choices": [
+            {
+              "label": "Host them warmly",
+              "effects": {
+                "culture": 5,
+                "food": -6
+              },
+              "note": "New tales enriched the tribe."
+            },
+            {
+              "label": "Trade for their craft",
+              "effects": {
+                "materials": -5,
+                "culture": 3
+              },
+              "note": "Learned a craft in exchange for goods."
+            }
+          ]
+        }
+      ]
+    },
+    "civilisation": {
+      "id": "civilisation",
+      "title": "Stage 4 · Civilisation",
+      "subtitle": "Found settlements, trade, and advance your technology.",
+      "diplomacy": [
+        {
+          "id": "fac_embassy",
+          "label": "Establish an embassy",
+          "description": "A permanent voice in their court, and theirs in yours.",
+          "kind": "emissary",
+          "costResource": "gold",
+          "cost": 8
+        },
+        {
+          "id": "fac_treaty",
+          "label": "Sign a trade treaty",
+          "description": "Open the roads both ways (needs a non-hostile neighbour).",
+          "kind": "trade",
+          "costResource": "gold",
+          "cost": 6
+        },
+        {
+          "id": "fac_dissent",
+          "label": "Sponsor dissent",
+          "description": "Fund their malcontents. Cheaper than war, and never forgiven.",
+          "kind": "undermine",
+          "costResource": "gold",
+          "cost": 12
+        },
+        {
+          "id": "fac_frontier",
+          "label": "Garrison the frontier",
+          "description": "Feed troops on the border to blunt their next incursion.",
+          "kind": "fortify",
+          "costResource": "food",
+          "cost": 10
+        },
+        {
+          "id": "fac_conquer",
+          "label": "March on them",
+          "description": "Commit your legions. Grind them down first — a repulsed march is costly.",
+          "kind": "conquer",
+          "costResource": "gold",
+          "cost": 25
+        }
+      ],
+      "resources": [
+        {
+          "id": "food",
+          "label": "Food",
+          "start": 40,
+          "perTick": 1.6
+        },
+        {
+          "id": "gold",
+          "label": "Wealth",
+          "start": 15,
+          "perTick": 0.4
+        },
+        {
+          "id": "tech",
+          "label": "Technology",
+          "start": 0,
+          "perTick": 0
+        }
+      ],
+      "actions": [
+        {
+          "id": "farms",
+          "label": "Terrace farming",
+          "description": "Surplus food frees hands for other work.",
+          "cost": {
+            "gold": 10
+          },
+          "grants": {},
+          "rate": {
+            "food": 1.2
+          },
+          "requires": [],
+          "once": false,
+          "placement": true,
+          "anchor": "home",
+          "maxRepeat": 5,
+          "costGrowth": 1.5
+        },
+        {
+          "id": "markets",
+          "label": "Open markets",
+          "description": "Trade turns surplus into wealth.",
+          "cost": {
+            "food": 20
+          },
+          "grants": {},
+          "rate": {
+            "gold": 0.9
+          },
+          "requires": [],
+          "once": false,
+          "placement": true,
+          "anchor": "home",
+          "maxRepeat": 4,
+          "costGrowth": 1.5
+        },
+        {
+          "id": "scout",
+          "label": "Send explorers",
+          "description": "Chart the lands beyond your borders.",
+          "cost": {
+            "gold": 8
+          },
+          "grants": {},
+          "rate": {},
+          "requires": [],
+          "once": false,
+          "special": "scout"
+        },
+        {
+          "id": "granary",
+          "label": "Raise granaries",
+          "description": "Stored surplus steadies the city through lean years.",
+          "cost": {
+            "food": 25
+          },
+          "grants": {
+            "food": 10
+          },
+          "rate": {
+            "food": 0.5
+          },
+          "requires": [
+            "farms"
+          ],
+          "once": false,
+          "placement": true,
+          "anchor": "home",
+          "maxRepeat": 3,
+          "costGrowth": 1.5
+        },
+        {
+          "id": "writing",
+          "label": "Invent writing",
+          "description": "Recorded knowledge compounds over generations.",
+          "cost": {
+            "gold": 15
+          },
+          "grants": {},
+          "rate": {
+            "tech": 0.2
+          },
+          "requires": [
+            "markets"
+          ],
+          "once": true,
+          "placement": true,
+          "anchor": "home"
+        },
+        {
+          "id": "academy",
+          "label": "Found an academy",
+          "description": "Dedicated scholars accelerate discovery.",
+          "cost": {
+            "gold": 40,
+            "food": 25
+          },
+          "grants": {},
+          "rate": {
+            "tech": 0.3
+          },
+          "requires": [
+            "writing"
+          ],
+          "once": false,
+          "placement": true,
+          "anchor": "home",
+          "maxRepeat": 3,
+          "costGrowth": 1.6
+        },
+        {
+          "id": "aqueduct",
+          "label": "Build aqueducts",
+          "description": "Water for the growing districts — the city swells.",
+          "cost": {
+            "gold": 25,
+            "food": 15
+          },
+          "grants": {},
+          "rate": {
+            "food": 0.8,
+            "tech": 0.15
+          },
+          "requires": [
+            "granary"
+          ],
+          "once": false,
+          "placement": true,
+          "anchor": "home",
+          "maxRepeat": 3,
+          "costGrowth": 1.5
+        },
+        {
+          "id": "settle",
+          "label": "Found a settlement",
+          "description": "Send settlers to raise a daughter town beyond the walls.",
+          "cost": {
+            "food": 30,
+            "gold": 15
+          },
+          "grants": {},
+          "rate": {
+            "food": 0.6,
+            "gold": 0.5
+          },
+          "requires": [
+            "markets"
+          ],
+          "once": false,
+          "placement": true,
+          "anchor": "home",
+          "maxRepeat": 4,
+          "costGrowth": 1.6
+        }
+      ],
+      "objective": {
+        "resource": "tech",
+        "target": 230,
+        "label": "Advance your technology"
+      },
+      "map": {
+        "style": "era",
+        "home": {
+          "x": 0.3,
+          "y": 0.55
+        },
+        "sites": [
+          {
+            "id": "delta",
+            "label": "River delta",
+            "x": 0.48,
+            "y": 0.3,
+            "kind": "village"
+          },
+          {
+            "id": "hillfort",
+            "label": "Hill village",
+            "x": 0.6,
+            "y": 0.75,
+            "kind": "village"
+          },
+          {
+            "id": "quarry",
+            "label": "Old quarry",
+            "x": 0.8,
+            "y": 0.62,
+            "kind": "resource",
+            "resource": "gold"
+          },
+          {
+            "id": "harbor",
+            "label": "Deep harbor",
+            "x": 0.9,
+            "y": 0.32,
+            "kind": "village"
+          },
+          {
+            "id": "mines",
+            "label": "Silver mines",
+            "x": 0.28,
+            "y": 0.86,
+            "kind": "resource",
+            "resource": "gold"
+          }
+        ]
+      },
+      "rivals": [
+        {
+          "id": "stonekin",
+          "name": "the Stonekin",
+          "x": 0.76,
+          "y": 0.28,
+          "archetype": "builder",
+          "strength": 26,
+          "hidden": false
+        },
+        {
+          "id": "palefins",
+          "name": "the Palefins",
+          "x": 0.62,
+          "y": 0.88,
+          "archetype": "trader",
+          "strength": 20,
+          "hidden": true
+        },
+        {
+          "id": "brackish",
+          "name": "the Brackish",
+          "x": 0.88,
+          "y": 0.82,
+          "archetype": "trader",
+          "strength": 24,
+          "hidden": false,
+          "emergesAt": 160
+        },
+        {
+          "id": "hollow_civ",
+          "name": "the Hollow Ones",
+          "x": 0.18,
+          "y": 0.2,
+          "archetype": "aggressive",
+          "strength": 22,
+          "hidden": true
+        }
+      ],
+      "fog": {
+        "enabled": true,
+        "revealRadius": 0.18
+      },
+      "eras": [
+        {
+          "id": "bronze",
+          "label": "Bronze Age",
+          "at": 0
+        },
+        {
+          "id": "iron",
+          "label": "Iron Age",
+          "at": 45
+        },
+        {
+          "id": "classical",
+          "label": "Classical Age",
+          "at": 90
+        }
+      ],
+      "mechanics": {
+        "cityBuild": true,
+        "tradeRoutes": true,
+        "eras": true,
+        "conquest": true
+      },
+      "onboarding": [
+        {
+          "id": "welcome",
+          "title": "From camp to city",
+          "text": "Your people now build to last. Placed decisions become real buildings — pick a spot and your city grows around it."
+        },
+        {
+          "id": "eras",
+          "title": "Ages of invention",
+          "text": "As technology climbs, your civilisation crosses into new eras — watch the city transform around you."
+        },
+        {
+          "id": "trade",
+          "title": "Roads and caravans",
+          "text": "Open trade with a rival and caravans will walk the road between your cities, carrying wealth home."
+        }
+      ],
+      "events": [
+        {
+          "id": "plague",
+          "title": "A creeping sickness",
+          "description": "Fever spreads through the crowded settlements.",
+          "visual": {
+            "kind": "plague",
+            "tint": "#8a2f6f",
+            "count": 18
+          },
+          "choices": [
+            {
+              "label": "Fund healers",
+              "effects": {
+                "gold": -15,
+                "tech": 4
+              },
+              "note": "Healers studied the sickness — and learned."
+            },
+            {
+              "label": "Quarantine",
+              "effects": {
+                "food": -12
+              },
+              "note": "Quarantine held, at a cost to trade."
+            }
+          ]
+        },
+        {
+          "id": "rival_city",
+          "title": "A rival city rises",
+          "description": "A neighbouring power eyes your trade routes.",
+          "visual": {
+            "kind": "construction"
+          },
+          "choices": [
+            {
+              "label": "Forge an alliance",
+              "effects": {
+                "gold": -10,
+                "tech": 6
+              },
+              "note": "An alliance opened new ideas."
+            },
+            {
+              "label": "Fortify borders",
+              "effects": {
+                "gold": -18
+              },
+              "note": "Borders held firm."
+            }
+          ]
+        },
+        {
+          "id": "caravan",
+          "title": "A foreign caravan",
+          "description": "Traders from beyond the mountains offer strange goods.",
+          "visual": {
+            "kind": "arrival",
+            "sprite": "caravan",
+            "count": 2
+          },
+          "choices": [
+            {
+              "label": "Buy their secrets",
+              "effects": {
+                "gold": -12,
+                "tech": 7
+              },
+              "note": "Foreign ideas seeded new inventions."
+            },
+            {
+              "label": "Tax their passage",
+              "effects": {
+                "gold": 10
+              },
+              "note": "The toll filled the treasury."
+            }
+          ]
+        },
+        {
+          "id": "harvest",
+          "title": "A golden harvest",
+          "description": "The terraces overflow. What to do with the surplus?",
+          "visual": {
+            "kind": "harvest",
+            "tint": "#c8e06a",
+            "count": 16
+          },
+          "choices": [
+            {
+              "label": "Feast and festival",
+              "effects": {
+                "food": -10,
+                "gold": 8
+              },
+              "note": "The festival drew traders from afar."
+            },
+            {
+              "label": "Store it all",
+              "effects": {
+                "food": 14
+              },
+              "note": "Granaries filled to the beams."
+            }
+          ]
+        },
+        {
+          "id": "delta_flood",
+          "title": "The great river floods",
+          "description": "The delta bursts its banks, drowning fields and roads.",
+          "visual": {
+            "kind": "storm",
+            "tint": "#5f8fd9"
+          },
+          "choices": [
+            {
+              "label": "Rebuild the levees",
+              "effects": {
+                "gold": -14
+              },
+              "note": "New levees tamed the river."
+            },
+            {
+              "label": "Move to higher ground",
+              "effects": {
+                "food": -10,
+                "gold": 4
+              },
+              "note": "Resettled the wards; salvage paid a little back."
+            }
+          ]
+        },
+        {
+          "id": "philosophers",
+          "title": "A school of philosophers",
+          "description": "Thinkers gather in the forum, arguing over the shape of the world.",
+          "visual": {
+            "kind": "festival",
+            "tint": "#c8a86a"
+          },
+          "choices": [
+            {
+              "label": "Fund the school",
+              "effects": {
+                "gold": -12,
+                "tech": 6
+              },
+              "note": "The school bore new ideas."
+            },
+            {
+              "label": "Let them fund themselves",
+              "effects": {
+                "gold": 5,
+                "tech": 2
+              },
+              "note": "Patrons paid; a few ideas trickled out."
+            }
+          ]
+        },
+        {
+          "id": "provinces_unrest",
+          "title": "Unrest in the provinces",
+          "description": "Outlying towns chafe under the capital's taxes.",
+          "visual": {
+            "kind": "uprising",
+            "count": 6
+          },
+          "choices": [
+            {
+              "label": "Lower the taxes",
+              "effects": {
+                "gold": -12,
+                "food": 6
+              },
+              "note": "Eased taxes bought back their loyalty."
+            },
+            {
+              "label": "Send the garrison",
+              "effects": {
+                "gold": -8,
+                "tech": 3
+              },
+              "note": "Order restored; the engineers learned siegecraft."
+            }
+          ]
+        }
+      ]
+    },
+    "planetary": {
+      "id": "planetary",
+      "title": "Stage 5 · Planetary",
+      "subtitle": "Balance industry and ecology, and unify your world.",
+      "diplomacy": [
+        {
+          "id": "fac_summit",
+          "label": "Convene a summit",
+          "description": "Get every bloc in one room and keep them there.",
+          "kind": "emissary",
+          "costResource": "industry",
+          "cost": 10
+        },
+        {
+          "id": "fac_transfer",
+          "label": "Technology transfer",
+          "description": "Share what you know. Goodwill compounds (needs a non-hostile bloc).",
+          "kind": "trade",
+          "costResource": "industry",
+          "cost": 8
+        },
+        {
+          "id": "fac_sanctions",
+          "label": "Impose sanctions",
+          "description": "Close your markets to them. Effective, and long remembered.",
+          "kind": "undermine",
+          "costResource": "industry",
+          "cost": 12
+        },
+        {
+          "id": "fac_resilience",
+          "label": "Harden infrastructure",
+          "description": "Shield your grid and ports against their next reprisal.",
+          "kind": "fortify",
+          "costResource": "industry",
+          "cost": 10
+        }
+      ],
+      "resources": [
+        {
+          "id": "industry",
+          "label": "Industry",
+          "start": 20,
+          "perTick": 1.0
+        },
+        {
+          "id": "ecology",
+          "label": "Ecology",
+          "start": 50,
+          "perTick": -0.25
+        },
+        {
+          "id": "unity",
+          "label": "Unity",
+          "start": 0,
+          "perTick": 0
+        }
+      ],
+      "actions": [
+        {
+          "id": "factories",
+          "label": "Build industry",
+          "description": "Industry powers progress — but strains the world.",
+          "cost": {},
+          "grants": {},
+          "rate": {
+            "industry": 0.8,
+            "ecology": -0.3
+          },
+          "requires": [],
+          "once": true,
+          "anchor": "site:north_range"
+        },
+        {
+          "id": "green",
+          "label": "Green technology",
+          "description": "Clean systems heal the biosphere over time.",
+          "cost": {
+            "industry": 20
+          },
+          "grants": {},
+          "rate": {
+            "ecology": 0.6
+          },
+          "requires": [],
+          "once": true,
+          "anchor": "site:south_isles"
+        },
+        {
+          "id": "rewild",
+          "label": "Rewilding programs",
+          "description": "Give whole regions back to the wild.",
+          "cost": {
+            "industry": 15
+          },
+          "grants": {
+            "ecology": 12
+          },
+          "rate": {
+            "ecology": 0.3
+          },
+          "requires": [
+            "green"
+          ],
+          "once": true,
+          "anchor": "site:west_reach"
+        },
+        {
+          "id": "councils",
+          "label": "World councils",
+          "description": "Shared governance draws the planet together.",
+          "cost": {
+            "industry": 15
+          },
+          "grants": {},
+          "rate": {
+            "unity": 0.2
+          },
+          "requires": [],
+          "once": true
+        },
+        {
+          "id": "accord",
+          "label": "Global accord",
+          "description": "A lasting accord unites your species as one.",
+          "cost": {
+            "industry": 30,
+            "ecology": 10
+          },
+          "grants": {},
+          "rate": {
+            "unity": 0.3
+          },
+          "requires": [
+            "councils"
+          ],
+          "once": true
+        },
+        {
+          "id": "one_voice",
+          "label": "One voice",
+          "description": "A planetary anthem — every bloc at one table.",
+          "cost": {
+            "industry": 25
+          },
+          "grants": {
+            "unity": 8
+          },
+          "rate": {
+            "unity": 0.15
+          },
+          "requires": [
+            "accord"
+          ],
+          "once": true
+        },
+        {
+          "id": "assembly",
+          "label": "Planetary assembly",
+          "description": "Seat every nation in one chamber at your capital.",
+          "cost": {
+            "industry": 12
+          },
+          "grants": {},
+          "rate": {
+            "unity": 0.12
+          },
+          "requires": [],
+          "once": true,
+          "anchor": "home"
+        },
+        {
+          "id": "broadcast",
+          "label": "Global broadcast",
+          "description": "One signal, heard in every language on the planet.",
+          "cost": {
+            "industry": 18
+          },
+          "grants": {
+            "unity": 5
+          },
+          "rate": {
+            "unity": 0.1
+          },
+          "requires": [
+            "assembly"
+          ],
+          "once": true,
+          "anchor": "home"
+        },
+        {
+          "id": "archive",
+          "label": "World archive",
+          "description": "Every history your species remembers, kept in one vault.",
+          "cost": {
+            "industry": 20,
+            "ecology": 5
+          },
+          "grants": {
+            "unity": 6
+          },
+          "rate": {
+            "unity": 0.08
+          },
+          "requires": [
+            "broadcast"
+          ],
+          "once": true,
+          "anchor": "home"
+        },
+        {
+          "id": "spaceport",
+          "label": "Orbital spaceport",
+          "description": "Look up. The first rung of the ladder off this world.",
+          "cost": {
+            "industry": 40,
+            "ecology": 10
+          },
+          "grants": {},
+          "rate": {
+            "industry": 0.5,
+            "unity": 0.06
+          },
+          "requires": [
+            "archive"
+          ],
+          "once": true,
+          "anchor": "home"
+        }
+      ],
+      "objective": {
+        "resource": "unity",
+        "target": 205,
+        "label": "Unify the planet"
+      },
+      "map": {
+        "style": "planet",
+        "home": {
+          "x": 0.32,
+          "y": 0.52
+        },
+        "sites": [
+          {
+            "id": "north_range",
+            "label": "Northern range",
+            "x": 0.5,
+            "y": 0.22,
+            "kind": "region"
+          },
+          {
+            "id": "east_basin",
+            "label": "Eastern basin",
+            "x": 0.72,
+            "y": 0.45,
+            "kind": "region"
+          },
+          {
+            "id": "south_isles",
+            "label": "Southern isles",
+            "x": 0.55,
+            "y": 0.8,
+            "kind": "region"
+          },
+          {
+            "id": "west_reach",
+            "label": "Western reach",
+            "x": 0.18,
+            "y": 0.3,
+            "kind": "region"
+          },
+          {
+            "id": "deep_south",
+            "label": "Polar shelf",
+            "x": 0.4,
+            "y": 0.9,
+            "kind": "region"
+          }
+        ]
+      },
+      "rivals": [
+        {
+          "id": "forgeworks",
+          "name": "the Forgeworks Bloc",
+          "x": 0.74,
+          "y": 0.3,
+          "archetype": "aggressive",
+          "strength": 28,
+          "hidden": false
+        },
+        {
+          "id": "verdant",
+          "name": "the Verdant League",
+          "x": 0.6,
+          "y": 0.78,
+          "archetype": "trader",
+          "strength": 22,
+          "hidden": false
+        },
+        {
+          "id": "meridian",
+          "name": "the Meridian Compact",
+          "x": 0.88,
+          "y": 0.6,
+          "archetype": "builder",
+          "strength": 24,
+          "hidden": false
+        },
+        {
+          "id": "sunless_bloc",
+          "name": "the Sunless Concord",
+          "x": 0.16,
+          "y": 0.86,
+          "archetype": "aggressive",
+          "strength": 26,
+          "hidden": false,
+          "emergesAt": 150
+        }
+      ],
+      "fog": {
+        "enabled": false,
+        "revealRadius": 0.2
+      },
+      "mechanics": {
+        "ecologyPressure": true,
+        "tradeRoutes": true
+      },
+      "raidLabel": "imposed sanctions",
+      "onboarding": [
+        {
+          "id": "welcome",
+          "title": "One world, many powers",
+          "text": "Your civilisation now spans the globe — alongside rival power blocs. Unity is the goal; the biosphere is the limit."
+        },
+        {
+          "id": "ecology",
+          "title": "The living world",
+          "text": "Watch the planet itself: as ecology falls the land greys and smogs. If it hits zero, unity stalls until the world heals."
+        },
+        {
+          "id": "blocs",
+          "title": "Power blocs",
+          "text": "Rival blocs impose sanctions instead of raids, and race you to lead the world. Diplomacy matters more than walls."
+        }
+      ],
+      "events": [
+        {
+          "id": "climate_shift",
+          "title": "The climate turns",
+          "description": "Rising strain on the biosphere threatens millions.",
+          "visual": {
+            "kind": "storm",
+            "tint": "#f2795f"
+          },
+          "choices": [
+            {
+              "label": "Emergency rewilding",
+              "effects": {
+                "industry": -15,
+                "ecology": 12
+              },
+              "note": "Rewilding pulled the world back from the edge."
+            },
+            {
+              "label": "Engineer around it",
+              "effects": {
+                "industry": -10,
+                "unity": 5
+              },
+              "note": "Bold engineering rallied the world."
+            }
+          ]
+        },
+        {
+          "id": "secession",
+          "title": "A region secedes",
+          "description": "A powerful region threatens to break away.",
+          "visual": {
+            "kind": "secession"
+          },
+          "choices": [
+            {
+              "label": "Offer autonomy",
+              "effects": {
+                "unity": 6,
+                "industry": -8
+              },
+              "note": "Autonomy kept the peace."
+            },
+            {
+              "label": "Hold the union",
+              "effects": {
+                "unity": -4,
+                "industry": 6
+              },
+              "note": "The union held — for now."
+            }
+          ]
+        },
+        {
+          "id": "bloom",
+          "title": "The seas bloom",
+          "description": "Restored oceans erupt with life — the first great bloom in a century.",
+          "visual": {
+            "kind": "bloom",
+            "tint": "#4fd4c4",
+            "count": 18
+          },
+          "choices": [
+            {
+              "label": "Protect it absolutely",
+              "effects": {
+                "ecology": 10,
+                "industry": -6
+              },
+              "note": "The bloom became a sanctuary."
+            },
+            {
+              "label": "Harvest carefully",
+              "effects": {
+                "industry": 10,
+                "ecology": -4
+              },
+              "note": "A careful harvest fed the machines."
+            }
+          ]
+        },
+        {
+          "id": "strike",
+          "title": "A general strike",
+          "description": "Workers across three blocs down tools, demanding a cleaner world.",
+          "visual": {
+            "kind": "strike",
+            "sprite": "crowd",
+            "count": 6
+          },
+          "choices": [
+            {
+              "label": "Meet their demands",
+              "effects": {
+                "industry": -12,
+                "unity": 8,
+                "ecology": 4
+              },
+              "note": "The strikers' banner became the world's."
+            },
+            {
+              "label": "Wait them out",
+              "effects": {
+                "industry": -6,
+                "unity": -3
+              },
+              "note": "The strike faded, but the anger stayed."
+            }
+          ]
+        },
+        {
+          "id": "reactor_crisis",
+          "title": "A reactor falters",
+          "description": "An aging fusion plant edges toward failure above a crowded bloc.",
+          "visual": {
+            "kind": "flare",
+            "tint": "#f2b04a"
+          },
+          "choices": [
+            {
+              "label": "Shut it down safely",
+              "effects": {
+                "industry": -10,
+                "ecology": 4
+              },
+              "note": "A safe shutdown; the grid dimmed for a season."
+            },
+            {
+              "label": "Push it to the limit",
+              "effects": {
+                "industry": 8,
+                "ecology": -6
+              },
+              "note": "The plant held — barely — and kept the lights on."
+            }
+          ]
+        },
+        {
+          "id": "climate_migration",
+          "title": "Climate migrants",
+          "description": "Millions flee the drowning coasts, seeking new homes inland.",
+          "visual": {
+            "kind": "migration",
+            "sprite": "crowd",
+            "count": 8
+          },
+          "choices": [
+            {
+              "label": "Open the borders",
+              "effects": {
+                "unity": 6,
+                "industry": -6
+              },
+              "note": "Open doors knit the blocs closer together."
+            },
+            {
+              "label": "Fund resettlement camps",
+              "effects": {
+                "industry": -8,
+                "ecology": 3
+              },
+              "note": "Orderly camps eased the strain on the land."
+            }
+          ]
+        },
+        {
+          "id": "world_fair",
+          "severity": "minor",
+          "title": "A world exposition",
+          "description": "The blocs gather to show their wonders under one banner.",
+          "visual": {
+            "kind": "festival",
+            "tint": "#6ad0c8"
+          },
+          "choices": [
+            {
+              "label": "Host a grand fair",
+              "effects": {
+                "industry": -6,
+                "unity": 5
+              },
+              "note": "The fair became a symbol of one world."
+            },
+            {
+              "label": "Showcase green tech",
+              "effects": {
+                "industry": -4,
+                "ecology": 5
+              },
+              "note": "Clean wonders inspired every delegation."
+            }
+          ]
+        }
+      ]
+    },
+    "space": {
+      "id": "space",
+      "title": "Stage 6 · Space",
+      "subtitle": "Explore, colonise, and carry your lineage to the stars.",
+      "diplomacy": [
+        {
+          "id": "fac_contact",
+          "label": "Open first contact",
+          "description": "Send the greeting your species has rehearsed for centuries.",
+          "kind": "emissary",
+          "costResource": "research",
+          "cost": 10
+        },
+        {
+          "id": "fac_starlane",
+          "label": "Sign a starlane pact",
+          "description": "Shared lanes, shared charts (needs a non-hostile power).",
+          "kind": "trade",
+          "costResource": "alloy",
+          "cost": 6
+        },
+        {
+          "id": "fac_subvert",
+          "label": "Subvert their networks",
+          "description": "Quietly corrupt their archives. They will trace it eventually.",
+          "kind": "undermine",
+          "costResource": "research",
+          "cost": 12
+        },
+        {
+          "id": "fac_shields",
+          "label": "Raise system shields",
+          "description": "Ring your worlds against their next eclipse.",
+          "kind": "fortify",
+          "costResource": "alloy",
+          "cost": 10
+        }
+      ],
+      "resources": [
+        {
+          "id": "research",
+          "label": "Research",
+          "start": 30,
+          "perTick": 0.9
+        },
+        {
+          "id": "alloy",
+          "label": "Alloy",
+          "start": 20,
+          "perTick": 0.5
+        },
+        {
+          "id": "legacy",
+          "label": "Legacy",
+          "start": 0,
+          "perTick": 0
+        }
+      ],
+      "actions": [
+        {
+          "id": "scout",
+          "label": "Launch probes",
+          "description": "Probes chart the nearby systems — each launch lights another star.",
+          "cost": {
+            "alloy": 10
+          },
+          "grants": {},
+          "rate": {
+            "research": 0.2
+          },
+          "requires": [],
+          "once": false,
+          "special": "scout"
+        },
+        {
+          "id": "shipyards",
+          "label": "Orbital shipyards",
+          "description": "Shipyards turn research into fleets and alloy.",
+          "cost": {
+            "research": 20
+          },
+          "grants": {},
+          "rate": {
+            "alloy": 0.8
+          },
+          "requires": [],
+          "once": true,
+          "anchor": "home"
+        },
+        {
+          "id": "colonies",
+          "label": "Found a colony",
+          "description": "Seed your lineage on a charted world (needs a revealed system).",
+          "cost": {
+            "alloy": 30,
+            "research": 20
+          },
+          "grants": {},
+          "rate": {
+            "legacy": 0.12
+          },
+          "requires": [
+            "shipyards"
+          ],
+          "once": false,
+          "special": "colonise"
+        },
+        {
+          "id": "starships",
+          "label": "Interstellar ships",
+          "description": "Ships that cross the dark carry life to the stars.",
+          "cost": {
+            "alloy": 40,
+            "research": 30
+          },
+          "grants": {},
+          "rate": {
+            "legacy": 0.25
+          },
+          "requires": [
+            "colonies"
+          ],
+          "once": true,
+          "anchor": "home"
+        },
+        {
+          "id": "archive",
+          "label": "The great archive",
+          "description": "Everything your species has ever been, remembered forever.",
+          "cost": {
+            "research": 60
+          },
+          "grants": {
+            "legacy": 6
+          },
+          "rate": {
+            "legacy": 0.15
+          },
+          "requires": [
+            "starships"
+          ],
+          "once": true,
+          "anchor": "home"
+        }
+      ],
+      "objective": {
+        "resource": "legacy",
+        "target": 195,
+        "label": "Carry your lineage to the stars"
+      },
+      "map": {
+        "style": "starmap",
+        "home": {
+          "x": 0.2,
+          "y": 0.6
+        },
+        "sites": [
+          {
+            "id": "kestrel",
+            "label": "Kestrel system",
+            "x": 0.38,
+            "y": 0.36,
+            "kind": "colony_target",
+            "rateBonus": {
+              "legacy": 0.1
+            }
+          },
+          {
+            "id": "halcyon",
+            "label": "Halcyon system",
+            "x": 0.52,
+            "y": 0.68,
+            "kind": "colony_target",
+            "rateBonus": {
+              "legacy": 0.1
+            }
+          },
+          {
+            "id": "vesper",
+            "label": "Vesper system",
+            "x": 0.64,
+            "y": 0.28,
+            "kind": "colony_target",
+            "rateBonus": {
+              "legacy": 0.12
+            }
+          },
+          {
+            "id": "aurelia",
+            "label": "Aurelia system",
+            "x": 0.78,
+            "y": 0.55,
+            "kind": "colony_target",
+            "rateBonus": {
+              "legacy": 0.12
+            }
+          },
+          {
+            "id": "nadir",
+            "label": "Nadir deeps",
+            "x": 0.88,
+            "y": 0.8,
+            "kind": "colony_target",
+            "rateBonus": {
+              "legacy": 0.15
+            }
+          },
+          {
+            "id": "lumen",
+            "label": "Lumen shoal",
+            "x": 0.9,
+            "y": 0.24,
+            "kind": "colony_target",
+            "rateBonus": {
+              "legacy": 0.15
+            }
+          },
+          {
+            "id": "cinder",
+            "label": "Cinder system",
+            "x": 0.3,
+            "y": 0.18,
+            "kind": "colony_target",
+            "rateBonus": {
+              "legacy": 0.3
+            }
+          },
+          {
+            "id": "tempest",
+            "label": "Tempest system",
+            "x": 0.86,
+            "y": 0.14,
+            "kind": "colony_target",
+            "rateBonus": {
+              "legacy": 0.3
+            }
+          }
+        ]
+      },
+      "rivals": [
+        {
+          "id": "elders",
+          "name": "the Quiet Elders",
+          "x": 0.92,
+          "y": 0.12,
+          "archetype": "enigmatic",
+          "strength": 32,
+          "hidden": true
+        },
+        {
+          "id": "hollow",
+          "name": "the Hollow Ones",
+          "x": 0.5,
+          "y": 0.1,
+          "archetype": "aggressive",
+          "strength": 34,
+          "hidden": false,
+          "emergesAt": 240
+        }
+      ],
+      "fog": {
+        "enabled": true,
+        "revealRadius": 0.14
+      },
+      "mechanics": {
+        "colonies": true,
+        "tradeRoutes": true
+      },
+      "milestoneEffect": "claimSite",
+      "raidLabel": "eclipsed your works",
+      "onboarding": [
+        {
+          "id": "welcome",
+          "title": "The last shore",
+          "text": "You begin in close orbit of your homeworld. Build shipyards, then launch your first probe to break orbit — the camera pulls back to reveal the starmap you'll explore."
+        },
+        {
+          "id": "colonies",
+          "title": "New worlds",
+          "text": "Each revealed system can hold a colony — every colony adds to your legacy, and ships will trace the lanes between them."
+        },
+        {
+          "id": "elders",
+          "title": "Something older",
+          "text": "Something else moves among the stars. If it outpaces you, it will claim systems for itself. Chart fast."
+        }
+      ],
+      "events": [
+        {
+          "id": "anomaly",
+          "title": "A strange signal",
+          "description": "Probes detect an anomaly in a nearby system.",
+          "visual": {
+            "kind": "signal",
+            "tint": "#bfe8f5"
+          },
+          "choices": [
+            {
+              "label": "Investigate",
+              "effects": {
+                "research": 12,
+                "alloy": -8
+              },
+              "note": "The anomaly yielded new science."
+            },
+            {
+              "label": "Keep your distance",
+              "effects": {
+                "legacy": 4
+              },
+              "note": "Caution steadied the colonies."
+            }
+          ]
+        },
+        {
+          "id": "elder_race",
+          "title": "An elder civilisation",
+          "description": "You make contact with a far older species.",
+          "visual": {
+            "kind": "discovery",
+            "sprite": "ship"
+          },
+          "choices": [
+            {
+              "label": "Seek their knowledge",
+              "effects": {
+                "research": 16,
+                "legacy": -3
+              },
+              "note": "Ancient knowledge changed your course."
+            },
+            {
+              "label": "Trade as equals",
+              "effects": {
+                "alloy": 12,
+                "legacy": 4
+              },
+              "note": "A fair trade enriched the lineage."
+            }
+          ]
+        },
+        {
+          "id": "generation_ship",
+          "title": "The first generation ship",
+          "description": "Ten thousand volunteers ask to sail beyond every map.",
+          "visual": {
+            "kind": "launch",
+            "sprite": "ship"
+          },
+          "choices": [
+            {
+              "label": "Bless the voyage",
+              "effects": {
+                "alloy": -15,
+                "legacy": 9
+              },
+              "note": "The ship sailed beyond every map."
+            },
+            {
+              "label": "Keep them home",
+              "effects": {
+                "research": 8
+              },
+              "note": "Their genius stayed — and built."
+            }
+          ]
+        },
+        {
+          "id": "solar_storm",
+          "title": "A stellar flare",
+          "description": "Your home star convulses; orbitals brace for the wave.",
+          "visual": {
+            "kind": "flare",
+            "tint": "#f5b955"
+          },
+          "choices": [
+            {
+              "label": "Shield the yards",
+              "effects": {
+                "alloy": -10
+              },
+              "note": "The yards rode out the flare."
+            },
+            {
+              "label": "Study the storm",
+              "effects": {
+                "research": 10,
+                "alloy": -14
+              },
+              "note": "The flare rewrote stellar science."
+            }
+          ]
+        },
+        {
+          "id": "derelict",
+          "title": "A derelict hulk",
+          "description": "A dead ship drifts in a charted lane, its hull scarred by ages.",
+          "visual": {
+            "kind": "discovery",
+            "sprite": "ship"
+          },
+          "choices": [
+            {
+              "label": "Salvage the wreck",
+              "effects": {
+                "alloy": 12,
+                "research": -4
+              },
+              "note": "Old alloy filled the yards."
+            },
+            {
+              "label": "Study its logs",
+              "effects": {
+                "research": 10,
+                "alloy": -5
+              },
+              "note": "Its logs rewrote your star charts."
+            }
+          ]
+        },
+        {
+          "id": "colony_boom",
+          "title": "A colony flourishes",
+          "description": "One young colony reports a generation of plenty and new births.",
+          "visual": {
+            "kind": "colony",
+            "tint": "#8fe0c8"
+          },
+          "choices": [
+            {
+              "label": "Invest in its growth",
+              "effects": {
+                "alloy": -10,
+                "legacy": 6
+              },
+              "note": "The colony became a beacon among the stars."
+            },
+            {
+              "label": "Tax its surplus",
+              "effects": {
+                "alloy": 8,
+                "legacy": -2
+              },
+              "note": "Its surplus fuelled the fleet."
+            }
+          ]
+        },
+        {
+          "id": "gamma_burst",
+          "title": "A distant gamma burst",
+          "description": "A far-off star dies, washing your sensors in hard radiation.",
+          "visual": {
+            "kind": "flare",
+            "tint": "#c9b8e9"
+          },
+          "choices": [
+            {
+              "label": "Harden the archives",
+              "effects": {
+                "alloy": -8,
+                "research": 3
+              },
+              "note": "The archives rode out the wave intact."
+            },
+            {
+              "label": "Turn sensors toward it",
+              "effects": {
+                "research": 12,
+                "alloy": -6
+              },
+              "note": "The dying star yielded rare science."
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
