@@ -4,7 +4,7 @@
 
 | Concern | Choice |
 |---|---|
-| Framework | Laravel 13 (PHP 8.5) |
+| Framework | Laravel 13 (PHP 8.4) |
 | Auth | Laravel Breeze, Blade stack |
 | Views | Blade + Tailwind CSS v3 |
 | Interactive UI | TypeScript controllers (no SPA framework) |
@@ -13,7 +13,8 @@
 | Database | MySQL 8 |
 | PHP tests | Pest |
 | TS tests | Vitest |
-| E2E (later) | Playwright (a few critical journeys) |
+| E2E | Playwright (critical journeys) |
+| Local env | DDEV (PHP 8.4, MySQL 8.0, Node 20) |
 
 ## Rendering boundary (brief §8)
 

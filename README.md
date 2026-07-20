@@ -42,42 +42,57 @@ ending resolution, and opt-in unlisted sharing of a finished lineage. See
 
 ## Tech stack
 
-Laravel 13 · PHP 8.3+ · Laravel Breeze (Blade) · Tailwind CSS v3 · TypeScript ·
-Phaser 4 · Vite 8 · MySQL 8 · Pest · Vitest · Playwright.
+Laravel 13 · PHP 8.4 · Laravel Breeze (Blade) · Tailwind CSS v3 · TypeScript ·
+Phaser 4 · Vite 8 · MySQL 8 · Pest · Vitest · Playwright · DDEV (local).
 
 ## Local development
 
-Prerequisites: PHP 8.3+ (`composer.json` requires `^8.3`), Composer,
-**Node 20+** (Vite 8 requires 20.19+), MySQL 8.
+Local development runs in [DDEV](https://ddev.com), so the only prerequisites on
+your machine are DDEV and a container runtime (Docker Desktop, OrbStack, or
+Colima). PHP, Node, Composer and MySQL all live in the containers — nothing is
+installed on the host.
 
 ```bash
-# 1. Dependencies
-composer install
-npm install
-
-# 2. Environment
-cp .env.example .env          # if you don't already have a .env
-php artisan key:generate
-# set the one_small_life database credentials in .env (DB_CONNECTION=mysql)
-
-# 3. Database
-mysql -u root -p -e "CREATE DATABASE one_small_life CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-php artisan migrate
-
-# 4. Run (two terminals)
-php artisan serve             # http://127.0.0.1:8000
-npm run dev                   # Vite dev server / HMR
+ddev start                    # builds/starts containers, writes DB creds into .env
+ddev composer install
+ddev npm ci
+ddev exec php artisan key:generate
+ddev exec php artisan migrate
 ```
 
-Production build: `npm run build`.
+Then open <https://onesmalllife.ddev.site>.
+
+For HMR while you work:
+
+```bash
+ddev npm run dev              # Vite at https://onesmalllife.ddev.site:5173
+```
+
+`vite.config.js` detects DDEV via `IS_DDEV_PROJECT` and binds `0.0.0.0` with a
+`wss` HMR endpoint the host browser can reach; outside DDEV it falls back to
+Vite's normal localhost defaults, so a native `npm run dev` still works.
+
+The container versions are pinned in `.ddev/config.yaml` and deliberately track
+the Ploi target: **PHP 8.4**, **MySQL 8.0**, **Node 20**.
+
+Useful commands:
+
+```bash
+ddev ssh                      # shell in the web container
+ddev mysql                    # mysql client against the project DB
+ddev describe                 # URLs, ports, service status
+ddev stop                     # stop containers (ddev poweroff stops all projects)
+```
+
+Production build: `ddev npm run build`.
 
 ## Tests
 
 ```bash
-php artisan test     # Pest — auth, campaign flow, saves, endings, chronicle, sharing
-npm test             # Vitest — deterministic TS game logic
-npm run test:e2e     # Playwright — full-journey / stage-progression specs
-npm run typecheck    # tsc --noEmit
+ddev exec php artisan test   # Pest — auth, campaign flow, saves, endings, chronicle, sharing
+ddev npm test                # Vitest — deterministic TS game logic
+ddev npm run test:e2e        # Playwright — full-journey / stage-progression specs
+ddev npm run typecheck       # tsc --noEmit
 ```
 
 Pest runs against in-memory SQLite (`phpunit.xml`), so it needs no local MySQL

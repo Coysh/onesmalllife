@@ -1,0 +1,19 @@
+# Project-specific DDEV overrides. DDEV merges every .ddev/config.*.yaml into
+# config.yaml, so keeping these here leaves the generated config.yaml untouched
+# and easy to regenerate.
+
+# Expose the Vite dev server through ddev-router so HMR reaches the browser.
+# `npm run dev` binds 5173 inside the web container (see vite.config.js, which
+# switches on IS_DDEV_PROJECT); the router publishes it at
+# https://onesmalllife.ddev.site:5173.
+# All three fields are required — omitting https_port makes ddev-router fail.
+web_extra_exposed_ports:
+    - name: vite
+      container_port: 5173
+      http_port: 5172
+      https_port: 5173
+
+# The game has no user-uploaded files — portraits are composed at render time
+# from the trait/part catalogs — so there is no upload directory for Mutagen to
+# skip, and the default warning is noise.
+disable_upload_dirs_warning: true

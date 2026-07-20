@@ -3,6 +3,32 @@
 A running log of decisions and the reasoning behind them. Newest at the top.
 Format: **Decision** — context → choice → consequence.
 
+## 2026-07-20 — Local environment
+
+### D21. Local development runs in DDEV
+The host stack (Homebrew PHP 8.5, MySQL, Node) worked but drifted from the Ploi
+target and needed host-level credentials — the MySQL root password blocked the
+D20 migration until DDEV took over. DDEV pins the whole toolchain per project
+and is the maintainer's standard local setup.
+
+Pinned in `.ddev/config.yaml`: **PHP 8.4**, **MySQL 8.0**, **Node 20**, nginx-fpm,
+docroot `public`. MySQL (not DDEV's MariaDB default) is chosen for parity with
+Ploi. PHP 8.4 rather than the host's 8.5 because DDEV v1.24.8 tops out at 8.4;
+`composer.json` requires `^8.3`, so this is comfortably in range.
+
+`ddev start` rewrites the `.env` DB block to the container credentials
+(`db`/`db`/`db`), which is why `.env` must stay untracked (see `.gitignore`).
+
+Vite needs help under DDEV: the dev server runs in the web container while the
+browser is on the host. `.ddev/config.vite.yaml` exposes 5173 through
+ddev-router, and `vite.config.js` switches on `IS_DDEV_PROJECT` to bind
+`0.0.0.0` and advertise a `wss` HMR endpoint. Outside DDEV the block is omitted,
+so a native `npm run dev` still behaves normally.
+
+Consequence: contributors need only DDEV and a container runtime. Verified
+end to end — migrations ran on real MySQL 8.0.40, 73 Pest tests pass, the site
+serves over HTTPS, and `public/hot` resolves to the ddev.site Vite URL.
+
 ## 2026-07-20 — Database switch
 
 ### D20. Database: MySQL, superseding D2 (PostgreSQL)
@@ -56,6 +82,7 @@ them and Vite bundles the woff2. No runtime CDN. The variable packages register
 as `"… Variable"`, so token font stacks lead with those names.
 
 ### D5. Node 20 via Homebrew
+> **Superseded by D21 (2026-07-20)** — Node is pinned in DDEV, not installed on the host.
 The machine had Node 14 (too old for Vite 8 / Phaser tooling). Installed
 `node@20` (keg-only; add to PATH). Consequence: developers must have Node 20.19+ (Vite 8's floor).
 
