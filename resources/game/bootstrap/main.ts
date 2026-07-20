@@ -12,6 +12,7 @@ import { ManagementController } from '../ui/ManagementController';
 import { EventModalController } from '../ui/EventModalController';
 import { OnboardingController } from '../ui/OnboardingController';
 import { DietController } from '../ui/DietController';
+import { AdaptController } from '../ui/AdaptController';
 import { SelectionBarController } from '../ui/SelectionBarController';
 import { TransitionController } from '../ui/TransitionController';
 import { DevToolsController } from '../ui/DevToolsController';
@@ -84,6 +85,7 @@ function boot(): void {
     new EventModalController(hudEl, bus);
     new OnboardingController(hudEl, bus);
     new DietController(hudEl, bus);
+    new AdaptController(hudEl, bus);
     new SelectionBarController(hudEl, bus);
     new TransitionController(hudEl, bus);
     new DevToolsController(hudEl, bus);

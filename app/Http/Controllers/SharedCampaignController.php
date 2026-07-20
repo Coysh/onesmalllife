@@ -50,8 +50,29 @@ class SharedCampaignController extends Controller
     public function disable(Campaign $campaign): RedirectResponse
     {
         $this->authorize('update', $campaign);
-        $campaign->update(['share_token' => null]);
+        $campaign->update(['share_token' => null, 'gallery_public' => false]);
 
         return back()->with('status', 'Sharing turned off.');
+    }
+
+    /** Owner: list a finished, shared lineage in the public gallery/leaderboards. */
+    public function enterGallery(Campaign $campaign): RedirectResponse
+    {
+        $this->authorize('update', $campaign);
+        abort_unless($campaign->completed, 422, 'Only a finished lineage can join the gallery.');
+
+        $campaign->ensureShareToken();
+        $campaign->update(['gallery_public' => true]);
+
+        return back()->with('status', 'Listed in the public gallery.');
+    }
+
+    /** Owner: remove a lineage from the public gallery/leaderboards (the share link itself stays live). */
+    public function leaveGallery(Campaign $campaign): RedirectResponse
+    {
+        $this->authorize('update', $campaign);
+        $campaign->update(['gallery_public' => false]);
+
+        return back()->with('status', 'Removed from the public gallery.');
     }
 }

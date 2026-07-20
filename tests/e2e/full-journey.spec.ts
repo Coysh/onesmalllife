@@ -42,10 +42,13 @@ test('a lineage can be played all the way from a cell to the ending', async ({ p
     await dismiss(page, '[data-overlay="stage-intro"]');
     await winAndContinue(page);
 
-    // Stage 2 — Creature: pick a diet, clear coach marks, then win.
+    // Stage 2 — Creature: pick a diet, shape the creature, clear coach marks.
     await expect(page.locator('#game-loading')).toBeHidden({ timeout: 15_000 });
     await dismiss(page, '[data-overlay="stage-intro"]');
     await page.locator('[data-overlay="diet"] [data-diet="herbivore"]').click();
+    const adapt = page.locator('[data-overlay="adapt"]');
+    await expect(adapt).toBeVisible({ timeout: 8_000 });
+    await adapt.locator('[data-adapt-id]').first().click();
     await dismiss(page, '[data-onboarding="skip"]');
     await winAndContinue(page);
 

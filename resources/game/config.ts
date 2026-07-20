@@ -152,15 +152,17 @@ export const CELL = {
     moteRadius: 9,
     cellRadius: 20, // display hitbox radius at tier 1 (grows per tier)
     absorbPadding: 6,
-    objectiveTarget: 45, // total growth (motes + eaten cells) to reach multicellular
+    objectiveTarget: 95, // total growth (motes + eaten cells) to reach multicellular
     /**
      * Growth tiers: absorbed-count thresholds at which the organism grows a
      * size tier. On tier-up the cell scales up, the camera zooms out and
      * formerly dangerous cells become prey (see systems/cellGrowth).
+     * Four tiers, so the stage keeps introducing new prey and new predators
+     * across its length rather than running out of food chain half way.
      */
-    tierThresholds: [0, 15, 35],
-    tierScale: [1, 1.4, 1.9], // organism display scale per tier
-    tierZoom: [1, 0.78, 0.58], // camera zoom per tier — the world "expands"
+    tierThresholds: [0, 15, 35, 62],
+    tierScale: [1, 1.4, 1.9, 2.5], // organism display scale per tier
+    tierZoom: [1, 0.78, 0.58, 0.44], // camera zoom per tier — the world "expands"
     tierInvulnMs: 2500, // grace period after growing
     // Threat handling shared by all enemy cell archetypes
     predatorAlertRadius: 360, // threat cue shows within this range

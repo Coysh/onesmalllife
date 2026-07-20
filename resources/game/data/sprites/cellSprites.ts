@@ -29,8 +29,8 @@ export interface CellLook {
 
 export interface EnemyCellDef {
     id: string;
-    /** Size tier 1..3 relative to the player's growth tiers. */
-    tier: 1 | 2 | 3;
+    /** Size tier 1..4 relative to the player's growth tiers. */
+    tier: 1 | 2 | 3 | 4;
     passive: boolean;
     hunts: boolean;
     flees: boolean;
@@ -112,6 +112,23 @@ export const ENEMY_CELLS: readonly EnemyCellDef[] = [
         radius: 34, wanderSpeed: 74, chaseSpeed: 205, detectRadius: 500,
         damage: 24, count: 2, growth: 8, energy: 52,
         look: { family: 'lance', body: 0x241a33, accent: 0x7d5ad9, nucleus: 0x120b1c, membrane: 'ridged', movement: 'jet', spikes: 0 },
+    },
+    {
+        // Tier-4 drifting colossus — enormous, slow and harmless to approach,
+        // but only edible once you have outgrown everything else. The single
+        // richest meal in the tidepool.
+        id: 'bloomspire', tier: 4, passive: true, hunts: false, flees: false,
+        radius: 120, wanderSpeed: 7, chaseSpeed: 7, detectRadius: 0,
+        damage: 0, count: 2, growth: 12, energy: 70,
+        look: { family: 'jelly', body: 0x2f6d8f, accent: 0x9fd9f0, nucleus: 0x1a4258, membrane: 'wavy', movement: 'cilia', spikes: 0, translucent: true },
+    },
+    {
+        // Tier-4 apex — the thing that hunts the hunters. Stays a genuine
+        // threat right up until the final growth tier.
+        id: 'siltreaper', tier: 4, passive: false, hunts: true, flees: false,
+        radius: 44, wanderSpeed: 66, chaseSpeed: 230, detectRadius: 620,
+        damage: 30, count: 2, growth: 10, energy: 64,
+        look: { family: 'lance', body: 0x4a1f14, accent: 0xf29a5f, nucleus: 0x1f0c07, membrane: 'spiky', movement: 'jet', spikes: 6 },
     },
 ] as const;
 

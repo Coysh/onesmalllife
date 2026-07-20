@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\CampaignController;
+use App\Http\Controllers\ChallengeController;
+use App\Http\Controllers\GalleryController;
 use App\Http\Controllers\PlayController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SharedCampaignController;
@@ -12,6 +14,9 @@ Route::get('/', function () {
 
 // Public, unlisted showcase of a shared lineage (token is the only way in).
 Route::get('/s/{token}', [SharedCampaignController::class, 'show'])->name('shared.show');
+
+// Public hall of fame — every gallery-opted-in, completed lineage.
+Route::get('/gallery', [GalleryController::class, 'index'])->name('gallery.index');
 
 Route::middleware('auth')->group(function () {
     // Dashboard = the player's lineages.
@@ -29,6 +34,14 @@ Route::middleware('auth')->group(function () {
     // Opt-in sharing of a lineage (owner only).
     Route::post('/campaigns/{campaign}/share', [SharedCampaignController::class, 'enable'])->name('campaigns.share');
     Route::delete('/campaigns/{campaign}/share', [SharedCampaignController::class, 'disable'])->name('campaigns.unshare');
+
+    // Opt-in public gallery/leaderboard listing (owner only; requires sharing + completed).
+    Route::post('/campaigns/{campaign}/gallery', [SharedCampaignController::class, 'enterGallery'])->name('campaigns.gallery.enter');
+    Route::delete('/campaigns/{campaign}/gallery', [SharedCampaignController::class, 'leaveGallery'])->name('campaigns.gallery.leave');
+
+    // Shared-seed challenges.
+    Route::get('/challenges', [ChallengeController::class, 'index'])->name('challenges.index');
+    Route::get('/challenges/{challengeSeed}', [ChallengeController::class, 'show'])->name('challenges.show');
 
     // Play a campaign + persist its autosave.
     Route::get('/play/{campaign}', [PlayController::class, 'show'])->name('play');

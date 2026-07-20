@@ -41,6 +41,12 @@ class CampaignState
             ],
             'history' => [],
             'resources' => [],
+            /**
+             * Final resources of each completed stage, keyed by stage id. Stage
+             * resources are reset on advance, so without this the whole of
+             * stages 3–6 leaves no trace and cannot inform the ending.
+             */
+            'chronicle' => [],
             'stageState' => new \stdClass(),
         ];
     }

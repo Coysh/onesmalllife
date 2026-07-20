@@ -29,6 +29,9 @@ class Campaign extends Model
         'last_played_at',
         'appearance',
         'share_token',
+        'gallery_public',
+        'challenge_seed_id',
+        'completed_at',
     ];
 
     protected function casts(): array
@@ -38,13 +41,20 @@ class Campaign extends Model
             'save_schema_version' => 'integer',
             'play_time_seconds' => 'integer',
             'last_played_at' => 'datetime',
+            'completed_at' => 'datetime',
             'appearance' => 'array',
+            'gallery_public' => 'boolean',
         ];
     }
 
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function challengeSeed(): BelongsTo
+    {
+        return $this->belongsTo(ChallengeSeed::class);
     }
 
     public function saves(): HasMany
@@ -83,5 +93,11 @@ class Campaign extends Model
     public function shareUrl(): ?string
     {
         return $this->share_token ? route('shared.show', $this->share_token) : null;
+    }
+
+    /** Gallery listing requires both an active share link and a finished lineage. */
+    public function isGalleryEligible(): bool
+    {
+        return $this->isShared() && $this->completed;
     }
 }

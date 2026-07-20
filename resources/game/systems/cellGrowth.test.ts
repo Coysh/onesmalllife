@@ -7,26 +7,36 @@ const species = (over: Partial<PreyLike>): PreyLike => ({
     tier: 1, passive: false, hunts: false, flees: false, damage: 10, ...over,
 });
 
+// Derived from config rather than hardcoded, so adding a growth tier is a
+// config change and not a test rewrite.
+const THRESHOLDS = CELL.tierThresholds;
+const MAX_TIER = THRESHOLDS.length;
+
 describe('cellGrowth tiers', () => {
-    it('maps absorbed counts onto 3 tiers via config thresholds', () => {
-        const [, t2, t3] = CELL.tierThresholds;
+    it('maps absorbed counts onto every configured tier', () => {
         expect(tierFor(0)).toBe(1);
-        expect(tierFor(t2 - 1)).toBe(1);
-        expect(tierFor(t2)).toBe(2);
-        expect(tierFor(t3 - 1)).toBe(2);
-        expect(tierFor(t3)).toBe(3);
-        expect(tierFor(999)).toBe(3);
+        THRESHOLDS.forEach((threshold, i) => {
+            const tier = i + 1;
+            expect(tierFor(threshold)).toBe(tier);
+            if (i > 0) expect(tierFor(threshold - 1)).toBe(tier - 1);
+        });
+        expect(tierFor(9999)).toBe(MAX_TIER);
     });
 
-    it('reports the next threshold and null at max tier', () => {
-        const [, t2, t3] = CELL.tierThresholds;
-        expect(nextTierAt(0)).toBe(t2);
-        expect(nextTierAt(t2)).toBe(t3);
-        expect(nextTierAt(t3)).toBeNull();
+    it('reports the next threshold, and null at max tier', () => {
+        for (let i = 0; i < THRESHOLDS.length - 1; i++) {
+            expect(nextTierAt(THRESHOLDS[i])).toBe(THRESHOLDS[i + 1]);
+        }
+        expect(nextTierAt(THRESHOLDS[MAX_TIER - 1])).toBeNull();
     });
 
-    it('reaching the objective implies max tier (completion always shows tier 3)', () => {
-        expect(tierFor(CELL.objectiveTarget)).toBe(3);
+    it('reaching the objective implies max tier (completion always shows the top tier)', () => {
+        expect(tierFor(CELL.objectiveTarget)).toBe(MAX_TIER);
+    });
+
+    it('tier arrays stay the same length, or the scene reads past the end', () => {
+        expect(CELL.tierScale.length).toBe(MAX_TIER);
+        expect(CELL.tierZoom.length).toBe(MAX_TIER);
     });
 });
 

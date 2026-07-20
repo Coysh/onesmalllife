@@ -9,6 +9,7 @@ use App\Domain\Campaigns\Stage;
 use App\Domain\Species\PartCatalog;
 use App\Http\Requests\StoreCampaignRequest;
 use App\Models\Campaign;
+use App\Models\ChallengeSeed;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Str;
 
@@ -32,13 +33,25 @@ class CampaignController extends Controller
     /** New-campaign setup screen. */
     public function create(): \Illuminate\View\View
     {
-        return view('campaigns.create');
+        // Arriving from the challenges page ties this build to that seed —
+        // the query param just pre-fills a hidden field on the form.
+        $challengeSeed = request()->filled('challenge_seed_id')
+            ? ChallengeSeed::find(request()->query('challenge_seed_id'))
+            : null;
+
+        return view('campaigns.create', ['challengeSeed' => $challengeSeed]);
     }
 
     /** Start a new lineage: generate a seed + species, seed the autosave. */
     public function store(StoreCampaignRequest $request): RedirectResponse
     {
-        $seed = Str::random(12);
+        // A challenge seed (daily/weekly) puts everyone in the same starting
+        // world; otherwise each lineage gets its own random one.
+        $challengeSeed = $request->filled('challenge_seed_id')
+            ? ChallengeSeed::find($request->input('challenge_seed_id'))
+            : null;
+
+        $seed = $challengeSeed?->seed ?? Str::random(12);
         $species = $this->generateSpeciesName($seed);
 
         // Appearance v2: the builder posts one part id per slot (validated
@@ -59,6 +72,7 @@ class CampaignController extends Controller
             'species_name' => $species,
             'last_played_at' => now(),
             'appearance' => $appearance,
+            'challenge_seed_id' => $challengeSeed?->id,
         ]);
 
         $campaign->saves()->create([
@@ -91,7 +105,52 @@ class CampaignController extends Controller
             'ending' => EndingResolver::resolve($campaign),
             'inheritedTraits' => $campaign->traits()->pluck('trait_id')->all(),
             'history' => $state['history'] ?? [],
+            // How each later stage finished — the epilogue reports the whole
+            // lineage, not only the traits it happened to pick up early.
+            'chronicle' => $state['chronicle'] ?? [],
+            'reasons' => self::endingReasons($state['chronicle'] ?? []),
         ]);
+    }
+
+    /**
+     * The lineage's later stages read back as plain sentences, so the ending is
+     * explained rather than merely announced. Mirrors the weightings in
+     * EndingResolver — if those thresholds move, move these with them.
+     *
+     * @param  array<string,array<string,float>>  $chronicle
+     * @return list<string>
+     */
+    private static function endingReasons(array $chronicle): array
+    {
+        $of = fn (string $stage, string $res) => (float) ($chronicle[$stage][$res] ?? 0);
+        $ecology = $of('planetary', 'ecology');
+
+        $reasons = [];
+        if ($of('tribe', 'culture') >= 200) {
+            $reasons[] = 'Your tribe grew rich in story and song, and others were drawn to it.';
+        }
+        if ($of('civilisation', 'tech') >= 200) {
+            $reasons[] = 'Your civilisation chased knowledge above all else.';
+        }
+        if ($of('civilisation', 'gold') >= 150) {
+            $reasons[] = 'Your cities grew wealthy, and that wealth bought reach.';
+        }
+        if ($ecology >= 60) {
+            $reasons[] = 'You left your homeworld greener than you found it.';
+        } elseif ($ecology > 0 && $ecology < 20) {
+            $reasons[] = 'Your homeworld was spent to build what came next.';
+        }
+        if ($of('planetary', 'unity') >= 220) {
+            $reasons[] = 'The whole planet spoke with one voice before you left it.';
+        }
+        if ($of('space', 'research') >= 150) {
+            $reasons[] = 'Among the stars, your people kept asking questions.';
+        }
+        if ($of('space', 'legacy') >= 220) {
+            $reasons[] = 'Your lineage left a mark that will outlast its worlds.';
+        }
+
+        return $reasons;
     }
 
     /** The species-history timeline. */

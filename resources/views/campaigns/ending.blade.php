@@ -51,7 +51,7 @@
                     </div>
                     <div>
                         <p class="font-mono text-label uppercase text-content-4">Stages crossed</p>
-                        <p class="text-content">6 · Cell to the stars</p>
+                        <p class="text-content">{{ count($chronicle) ?: 6 }} · Cell to the stars</p>
                     </div>
                     <div>
                         <p class="font-mono text-label uppercase text-content-4">Inherited adaptations</p>
@@ -63,11 +63,25 @@
                     </div>
                 </div>
 
+                @if (count($reasons))
+                    <div class="border-t border-ink-border pt-4 mb-4">
+                        <p class="font-mono text-label uppercase tracking-[0.06em] text-content-4 mb-3">Why it ended this way</p>
+                        <ul class="space-y-2">
+                            @foreach ($reasons as $reason)
+                                <li class="text-small text-content-2">{{ $reason }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+
                 @if (count($history))
                     <div class="border-t border-ink-border pt-4 mb-4">
                         <p class="font-mono text-label uppercase tracking-[0.06em] text-content-4 mb-3">The journey</p>
-                        <div class="space-y-3">
-                            @foreach (array_slice($history, -6) as $moment)
+                        {{-- The whole arc, not the last handful of moments: this
+                             is the one screen that should account for the
+                             entire lineage. --}}
+                        <div class="space-y-3 max-h-96 overflow-y-auto pr-1">
+                            @foreach ($history as $moment)
                                 <div class="flex gap-3">
                                     <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full" style="background: var(--osl-brand)"></span>
                                     <div>
@@ -105,6 +119,27 @@
                             </form>
                         </div>
                         <p class="text-small text-content-4 mt-2">Anyone with this link can view this lineage. Unlisted — never searchable.</p>
+
+                        <div class="border-t border-ink-border mt-4 pt-4">
+                            @if ($campaign->gallery_public)
+                                <div class="flex items-center justify-between gap-3">
+                                    <p class="text-small text-content-2">Listed in the <a href="{{ route('gallery.index') }}" class="text-content hover:underline">public gallery</a> and any challenge leaderboard it belongs to.</p>
+                                    <form method="POST" action="{{ route('campaigns.gallery.leave', $campaign) }}" class="shrink-0">
+                                        @csrf
+                                        @method('DELETE')
+                                        <x-ui.button variant="ghost" size="md">Unlist</x-ui.button>
+                                    </form>
+                                </div>
+                            @else
+                                <div class="flex items-center justify-between gap-3">
+                                    <p class="text-small text-content-4">Also join the public gallery and leaderboards?</p>
+                                    <form method="POST" action="{{ route('campaigns.gallery.enter', $campaign) }}" class="shrink-0">
+                                        @csrf
+                                        <x-ui.button variant="secondary" size="md">Join gallery</x-ui.button>
+                                    </form>
+                                </div>
+                            @endif
+                        </div>
                     </x-ui.panel>
                 @else
                     <form method="POST" action="{{ route('campaigns.share', $campaign) }}">

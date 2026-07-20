@@ -49,6 +49,7 @@ it('advances a lineage through all six stages into the ending, carrying state', 
 
     // Past the final stage → completed, ending route.
     expect($campaign->fresh()->completed)->toBeTrue();
+    expect($campaign->fresh()->completed_at)->not->toBeNull();
 
     // Every stage's trait accumulated across the whole run.
     $finalInherited = $campaign->autosave()->state['traits']['inherited'];

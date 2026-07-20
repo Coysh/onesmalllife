@@ -19,8 +19,10 @@ class EndingResolver
         $traitIds = $campaign->traits()->pluck('trait_id')->all();
         $has = fn (string $id) => in_array($id, $traitIds, true);
 
+        // No baseline: federation used to start a point ahead and win every
+        // tie, which made most lineages resolve the same way regardless of play.
         $scores = [
-            'federation' => 1, // baseline
+            'federation' => 0,
             'stewardship' => 0,
             'empire' => 0,
             'transcendence' => 0,
@@ -60,6 +62,57 @@ class EndingResolver
         }
         if ($has('creature:gut')) {
             $scores['stewardship'] += 2; // frugal, in balance with the land
+        }
+
+        // Stages 3–6: how the lineage actually governed, built and treated its
+        // world. Each stage's final resources are recorded on advance.
+        $chronicle = $campaign->autosave()?->state['chronicle'] ?? [];
+        $of = fn (string $stage, string $res) => (float) ($chronicle[$stage][$res] ?? 0);
+
+        // Tribe — a people rich in culture bind others to them.
+        if ($of('tribe', 'culture') >= 200) {
+            $scores['federation'] += 2;
+            $scores['stewardship'] += 1;
+        }
+
+        // Civilisation — knowledge or gold, and which you chased.
+        if ($of('civilisation', 'tech') >= 200) {
+            $scores['transcendence'] += 3;
+        }
+        if ($of('civilisation', 'gold') >= 150) {
+            $scores['empire'] += 3;
+        }
+
+        // Planetary — the clearest moral signal in the game: did the biosphere
+        // survive your industry?
+        $ecology = $of('planetary', 'ecology');
+        $industry = $of('planetary', 'industry');
+        if ($ecology >= 60) {
+            $scores['stewardship'] += 4;
+        } elseif ($ecology > 0 && $ecology < 20) {
+            $scores['empire'] += 3; // a world spent to build something else
+        }
+        if ($industry >= 120) {
+            $scores['empire'] += 2;
+        }
+        if ($of('planetary', 'unity') >= 220) {
+            $scores['federation'] += 3;
+        }
+
+        // Space — what the lineage reached for once it left home.
+        if ($of('space', 'research') >= 150) {
+            $scores['transcendence'] += 3;
+        }
+        if ($of('space', 'alloy') >= 150) {
+            $scores['empire'] += 2;
+        }
+        if ($of('space', 'legacy') >= 220) {
+            $scores['federation'] += 3;
+        }
+        // A lineage that reached the stars having built and shared very little
+        // kept to itself.
+        if ($of('space', 'alloy') < 60 && $of('space', 'research') < 60) {
+            $scores['isolation'] += 3;
         }
 
         // Ties resolve deterministically by family order (empire never wins a

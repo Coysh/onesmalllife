@@ -86,8 +86,10 @@
             "people": 0.15
           },
           "requires": [],
-          "once": true,
-          "anchor": "home"
+          "once": false,
+          "anchor": "home",
+          "maxRepeat": 5,
+          "costGrowth": 1.5
         },
         {
           "id": "forage",
@@ -101,8 +103,10 @@
             "food": 0.9
           },
           "requires": [],
-          "once": true,
-          "anchor": "site:grove"
+          "once": false,
+          "anchor": "site:grove",
+          "maxRepeat": 3,
+          "costGrowth": 1.6
         },
         {
           "id": "tools",
@@ -116,8 +120,10 @@
             "materials": 0.6
           },
           "requires": [],
-          "once": true,
-          "anchor": "site:flint"
+          "once": false,
+          "anchor": "site:flint",
+          "maxRepeat": 3,
+          "costGrowth": 1.6
         },
         {
           "id": "scout",
@@ -186,11 +192,87 @@
           ],
           "once": true,
           "anchor": "home"
+        },
+        {
+          "id": "weirs",
+          "label": "Build fish weirs",
+          "anchor": "site:river",
+          "description": "Traps in the shallows feed the tribe through lean months.",
+          "cost": {
+            "materials": 12
+          },
+          "grants": {},
+          "rate": {
+            "food": 0.7
+          },
+          "requires": [
+            "tools"
+          ],
+          "once": false,
+          "maxRepeat": 3,
+          "costGrowth": 1.5
+        },
+        {
+          "id": "paintings",
+          "label": "Paint the caves",
+          "anchor": "site:caves",
+          "description": "Ochre handprints and herds — your people telling their own story.",
+          "cost": {
+            "food": 18
+          },
+          "grants": {
+            "culture": 8
+          },
+          "rate": {
+            "culture": 0.18
+          },
+          "requires": [
+            "songs"
+          ],
+          "once": false,
+          "maxRepeat": 3,
+          "costGrowth": 1.6
+        },
+        {
+          "id": "salt",
+          "label": "Work the salt flats",
+          "anchor": "site:saltflat",
+          "description": "Salt preserves meat, and buys goodwill from every neighbour.",
+          "cost": {
+            "food": 10
+          },
+          "grants": {},
+          "rate": {
+            "materials": 0.5
+          },
+          "requires": [],
+          "once": false,
+          "maxRepeat": 3,
+          "costGrowth": 1.5
+        },
+        {
+          "id": "thicket_harvest",
+          "label": "Harvest the thicket",
+          "anchor": "site:thicket",
+          "description": "Berries in season — sweet, and easy to carry home.",
+          "cost": {
+            "food": 6
+          },
+          "grants": {
+            "food": 10
+          },
+          "rate": {
+            "food": 0.4
+          },
+          "requires": [],
+          "once": false,
+          "maxRepeat": 4,
+          "costGrowth": 1.45
         }
       ],
       "objective": {
         "resource": "culture",
-        "target": 120,
+        "target": 240,
         "label": "Establish the tribe's culture"
       },
       "map": {

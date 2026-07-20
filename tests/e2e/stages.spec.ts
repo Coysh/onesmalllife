@@ -122,11 +122,12 @@ test('tribe decisions can be taken from the contextual map bar', async ({ page }
     await expect(bar).toBeVisible({ timeout: 5_000 });
     await expect(bar).toContainText('Your settlement');
 
-    // Take "Build huts" from the bar; it resolves and reads Done.
+    // Take "Build huts" from the bar. It is repeatable, so it resolves to a
+    // count and re-prices rather than reading "Done" after one use.
     const huts = bar.locator('[data-action-id="huts"]');
     await expect(huts).toBeVisible();
     await huts.click();
-    await expect(huts).toContainText('Done', { timeout: 5_000 });
+    await expect(huts).toContainText('×1', { timeout: 5_000 });
 
     // Closing the bar clears the selection.
     await page.locator('[data-selection="close"]').click();
@@ -147,7 +148,13 @@ test('the Creature stage opens with a diet choice, then coach marks', async ({ p
     await diet.locator('[data-diet="carnivore"]').click();
     await expect(diet).toBeHidden();
 
-    // Picking a diet reveals the stage-2 coach marks.
+    // Then "shape your creature": one free adaptation, carried on from the cell.
+    const adapt = page.locator('[data-overlay="adapt"]');
+    await expect(adapt).toBeVisible({ timeout: 8_000 });
+    await adapt.locator('[data-adapt-id]').first().click();
+    await expect(adapt).toBeHidden();
+
+    // Only then do the stage-2 coach marks appear.
     await expect(page.locator('[data-overlay="onboarding"]')).toBeVisible({ timeout: 5_000 });
 });
 

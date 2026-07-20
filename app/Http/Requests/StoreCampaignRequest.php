@@ -22,6 +22,7 @@ class StoreCampaignRequest extends FormRequest
         $rules = [
             'name' => ['nullable', 'string', 'max:60'],
             'palette' => ['nullable', 'integer', 'min:0', 'max:'.(PartCatalog::paletteCount() - 1)],
+            'challenge_seed_id' => ['nullable', 'integer', 'exists:challenge_seeds,id'],
         ];
 
         // Part slots validate against the shared catalogue (appearance v2).

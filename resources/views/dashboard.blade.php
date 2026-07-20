@@ -19,6 +19,8 @@
                 <x-ui.wordmark size="h3" />
             </a>
             <div class="flex items-center gap-4">
+                <a href="{{ route('challenges.index') }}" class="text-small text-content-3 hover:text-content">Challenges</a>
+                <a href="{{ route('gallery.index') }}" class="text-small text-content-3 hover:text-content">Gallery</a>
                 <span class="text-small text-content-3">{{ auth()->user()->name }}</span>
                 <a href="{{ route('settings') }}" class="text-small text-content-3 hover:text-content">Settings</a>
                 <form method="POST" action="{{ route('logout') }}">

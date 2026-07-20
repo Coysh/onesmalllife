@@ -307,6 +307,19 @@
                 </x-ui.panel>
             </div>
 
+            {{-- Creature adaptation: one free trait at the start of Stage 2, so
+                 the body inherited from the cell is yours to shape --}}
+            <div data-overlay="adapt" hidden
+                 class="pointer-events-auto absolute inset-0 flex items-center justify-center p-4"
+                 style="background: radial-gradient(70% 70% at 50% 40%, rgba(79,212,196,.10), transparent), rgba(6,20,24,.86)">
+                <x-ui.panel class="w-full max-w-2xl p-7">
+                    <p class="font-mono text-label uppercase tracking-[0.06em] text-content-4 mb-1 text-center">Your lineage takes shape</p>
+                    <h2 class="font-display font-bold text-h2 text-content mb-2 text-center">Shape your creature</h2>
+                    <p class="text-small text-content-3 mb-6 text-center">Your cell's design carries forward. Choose one adaptation to begin with — you can earn more as you feed.</p>
+                    <div class="grid gap-3 sm:grid-cols-2" data-adapt="options"></div>
+                </x-ui.panel>
+            </div>
+
             {{-- Death moment (direct-control stages): shown after the cell ruptures --}}
             <div data-overlay="death" hidden
                  class="pointer-events-auto absolute inset-0 flex items-center justify-center"

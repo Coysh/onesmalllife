@@ -31,13 +31,22 @@
 
         <x-ui.panel class="w-full max-w-4xl p-6 sm:p-7">
             <div class="mb-5">
-                <p class="font-mono text-label uppercase tracking-[0.06em] text-content-4 mb-1">It begins with one small life</p>
-                <h1 class="text-h2 font-display font-bold text-content">Shape your first cell</h1>
-                <p class="text-small text-content-3 mt-1">Every part changes how your cell plays — build a swift darter, an armoured grazer, or a venomous hunter.</p>
+                @if ($challengeSeed)
+                    <p class="font-mono text-label uppercase tracking-[0.06em] text-brand-hi mb-1">{{ $challengeSeed->label() }} challenge</p>
+                    <h1 class="text-h2 font-display font-bold text-content">Shape your cell for the challenge</h1>
+                    <p class="text-small text-content-3 mt-1">Everyone in this challenge starts from the same seed — your choices from here are what set your lineage apart.</p>
+                @else
+                    <p class="font-mono text-label uppercase tracking-[0.06em] text-content-4 mb-1">It begins with one small life</p>
+                    <h1 class="text-h2 font-display font-bold text-content">Shape your first cell</h1>
+                    <p class="text-small text-content-3 mt-1">Every part changes how your cell plays — build a swift darter, an armoured grazer, or a venomous hunter.</p>
+                @endif
             </div>
 
             <form method="POST" action="{{ route('campaigns.store') }}" id="builder" class="grid gap-6 md:grid-cols-[280px_1fr]">
                 @csrf
+                @if ($challengeSeed)
+                    <input type="hidden" name="challenge_seed_id" value="{{ $challengeSeed->id }}">
+                @endif
 
                 {{-- Left: live preview + stat readout (stays visible while scrolling) --}}
                 <div class="space-y-4 sticky top-4 self-start z-10">

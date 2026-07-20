@@ -147,20 +147,34 @@ class PlayController extends Controller
         $current = Stage::from($campaign->current_stage);
         $next = $current->next();
 
+        $state = $campaign->autosave()?->state
+            ?? CampaignState::initial($campaign->seed, $campaign->species_name ?? 'Your lineage');
+
+        // Record how this stage ended before its resources are cleared — this
+        // is what lets the ending reflect the whole lineage rather than only
+        // the traits picked up in stages 1–2.
+        $state['chronicle'][$current->value] = $state['resources'] ?? [];
+
         if ($next === null) {
+            $campaign->saves()->updateOrCreate(
+                ['slot' => 0],
+                ['stage' => $current->value, 'save_schema_version' => CampaignState::SCHEMA_VERSION, 'state' => $state],
+            );
+            $campaign->refresh();
+
             // Persist the resolved ending family so the Chronicle can tally
             // families discovered without re-deriving it every time.
+            // completed_at (real-world clock, distinct from play_time_seconds)
+            // is what lets challenge/gallery leaderboards rank by speed.
             $campaign->update([
                 'completed' => true,
                 'ending_id' => EndingResolver::resolve($campaign)['id'],
+                'completed_at' => now(),
                 'last_played_at' => now(),
             ]);
 
             return redirect()->route('campaigns.ending', $campaign);
         }
-
-        $state = $campaign->autosave()?->state
-            ?? CampaignState::initial($campaign->seed, $campaign->species_name ?? 'Your lineage');
 
         // Everything the organism has become carries forward as inherited.
         $active = $state['traits']['active'] ?? [];

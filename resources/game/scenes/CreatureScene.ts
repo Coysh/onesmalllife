@@ -182,6 +182,7 @@ export class CreatureScene extends Phaser.Scene {
         // Diet: pick herbivore vs carnivore at the start of the stage (or
         // restore a saved choice). The sim waits on the choice.
         this.bus.on('intent:choose-diet', ({ diet }) => this.chooseDiet(diet));
+        this.bus.on('intent:choose-adaptation', ({ traitId }) => this.chooseAdaptation(traitId));
         if (this.diet) {
             this.showCreatureOnboarding();
         } else {
@@ -197,7 +198,51 @@ export class CreatureScene extends Phaser.Scene {
     private chooseDiet(diet: 'herbivore' | 'carnivore'): void {
         if (this.diet) return;
         this.diet = diet;
+        this.emitSnapshot();
+        this.offerAdaptation();
+    }
+
+    /**
+     * One free adaptation at the start of the stage. The body itself is
+     * inherited from the Stage 1 cell (appearance passes straight through), so
+     * this is a chance to shape it rather than redraw it. Offers only traits
+     * not already inherited; if there are none, the stage simply begins.
+     */
+    private offerAdaptation(): void {
+        const options = this.traitEngine
+            .forStage('creature')
+            .filter((t) => !this.owned.has(t.id))
+            .filter((t) => t.requires.every((r) => this.owned.has(r)))
+            .filter((t) => !t.conflicts.some((c) => this.owned.has(c)))
+            .slice(0, 4);
+
+        if (options.length === 0) {
+            this.beginStage();
+            return;
+        }
+
+        this.awaitingDiet = true; // keep the sim held while they choose
+        this.bus.emit('creature:choose-adaptation', {
+            options: options.map((t) => ({ id: t.id, name: t.name, description: t.description })),
+        });
+    }
+
+    private chooseAdaptation(traitId: string): void {
+        const trait = this.traitEngine.get(traitId);
+        // Free of charge — this is the starting shape, not a purchase.
+        if (trait && !this.owned.has(traitId)) {
+            this.owned.add(traitId);
+            this.recomputeTuning();
+            this.refreshVisuals();
+            this.bus.emit('sfx', { name: 'evolve' });
+        }
+        this.beginStage();
+    }
+
+    private beginStage(): void {
         this.awaitingDiet = false;
+        this.emitHud();
+        this.emitTraits();
         this.emitSnapshot();
         this.showCreatureOnboarding();
     }

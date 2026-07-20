@@ -115,11 +115,18 @@ describe('direct-control stage pacing (derived bounds)', () => {
         const travelSeconds = (eats * spacing) / CELL.speed;
         // Even a perfect straight-line player spends minutes travelling.
         expect(travelSeconds).toBeGreaterThan(50);
-        // And the objective demands tier 3, which exists.
-        expect(CELL.tierThresholds.length).toBe(3);
+        // The final tier must be reachable before the objective completes,
+        // otherwise the last growth tier is content the player never sees.
+        const maxTier = CELL.tierThresholds.length;
+        expect(CELL.objectiveTarget).toBeGreaterThan(CELL.tierThresholds[maxTier - 1]);
         // Something is edible at every tier so progress never stalls.
-        for (const tier of [1, 2, 3]) {
-            expect(ENEMY_CELLS.some((d) => canEat(tier, d))).toBe(tier > 0 || true);
+        for (let tier = 1; tier <= maxTier; tier++) {
+            expect(ENEMY_CELLS.some((d) => canEat(tier, d))).toBe(true);
+        }
+        // And every tier below the top still has a genuine threat in it, so
+        // growing up the chain always means outgrowing something.
+        for (let tier = 1; tier < maxTier; tier++) {
+            expect(ENEMY_CELLS.some((d) => d.damage > 0 && !canEat(tier, d))).toBe(true);
         }
     });
 

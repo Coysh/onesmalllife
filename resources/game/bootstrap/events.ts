@@ -191,6 +191,13 @@ export interface GameEventMap {
     'onboarding:show': OnboardingView;
     /** Creature stage start: ask the player to pick a diet. */
     'creature:choose-diet': void;
+    /**
+     * Creature stage start, after diet: shape the body your cell grew into by
+     * taking one adaptation for free. The design carries forward from Stage 1
+     * rather than being redrawn.
+     */
+    'creature:choose-adaptation': { options: { id: string; name: string; description: string }[] };
+    'intent:choose-adaptation': { traitId: string };
     'sfx': { name: string };
     'game:pause': void;
     'game:resume': void;
