@@ -20,7 +20,7 @@ Settings that matter:
 | Setting | Value |
 |---|---|
 | Server type | Web server |
-| PHP version | **8.3 or newer** (`composer.json` requires `^8.3`) |
+| PHP version | **8.3 or newer** (`composer.json` requires `^8.3`; production currently runs 8.5) |
 | Database | **MySQL 8** — Ploi's default, nothing to change |
 | Server size | 1 vCPU / 2 GB RAM is enough to start |
 
@@ -154,7 +154,7 @@ php artisan route:cache
 php artisan view:cache
 
 # Reload PHP-FPM so the new code and caches take effect
-echo "" | sudo -S service php8.3-fpm reload
+echo "" | sudo -S service php8.5-fpm reload
 ```
 
 Notes:
@@ -163,13 +163,39 @@ Notes:
 - `npm ci` (not `npm install`) installs exactly what `package-lock.json` pins.
   Vite build tooling lives in `devDependencies`, so do **not** pass `--omit=dev`
   here or the build will fail.
-- Adjust `php8.3-fpm` to the PHP version you actually provisioned.
+- Adjust `php8.5-fpm` to the PHP version you actually provisioned.
 - `php artisan migrate --force` is required — without `--force` Artisan refuses to
   run migrations non-interactively in production.
 
-Click **Deploy now** and watch the log. Common first-deploy failures: Node too
-old (step 2), database credentials wrong (step 6), or `APP_KEY` not yet generated
-(step 6).
+Click **Deploy now** and watch the log.
+
+### The npm steps are not optional
+
+Leaving `npm ci` / `npm run build` out of the deploy script produces:
+
+```
+Illuminate\Foundation\ViteManifestNotFoundException
+Vite manifest not found at: .../public/build/manifest.json
+```
+
+`public/build/` is gitignored, so `git pull` never delivers it — the manifest
+only exists if the server builds it. Every deploy must run the build, and the
+server needs Node 20.19+ (step 2) for it to succeed.
+
+Other common first-deploy failures: Node too old (step 2), database credentials
+wrong (step 6), or `APP_KEY` not yet generated (step 6).
+
+### Behind Cloudflare
+
+If the domain is proxied through Cloudflare, requests reach Laravel over HTTP
+with `X-Forwarded-Proto: https`. Set `APP_URL` to the `https://` address so
+generated asset and reset-password URLs use the right scheme — otherwise you get
+mixed-content failures that look like missing assets. Laravel's `TrustProxies`
+middleware handles the forwarded headers by default.
+
+Use Cloudflare SSL mode **Full (strict)** together with the Let's Encrypt
+certificate from step 9. "Flexible" makes Cloudflare talk to the origin over
+plain HTTP and causes redirect loops.
 
 ## 8. Enable auto-deploy
 
