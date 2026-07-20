@@ -20,6 +20,10 @@ export class EnemyCell {
     private angle: number;
     private breathe: number;
     private behaviourRng: Rng;
+    private chaseSeconds = 0;
+    private disengageSeconds = 0;
+    private homeX = 0;
+    private homeY = 0;
 
     constructor(private scene: Phaser.Scene, private rng: Rng, private bounds: Phaser.Geom.Rectangle, def: EnemyCellDef, index = 0) {
         this.def = def;
@@ -62,6 +66,10 @@ export class EnemyCell {
             }
         }
         this.consumed = false;
+        this.chaseSeconds = 0;
+        this.disengageSeconds = 0;
+        this.homeX = this.x;
+        this.homeY = this.y;
         this.container.setAlpha(1).setScale(1);
         this.container.setVisible(true);
     }
@@ -74,7 +82,19 @@ export class EnemyCell {
         if (this.consumed) return Infinity;
         const dist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
 
-        const hunting = shouldHunt(playerTier, this.def) && this.def.detectRadius > 0 && dist <= this.def.detectRadius;
+        const mayHunt = shouldHunt(playerTier, this.def) && this.def.detectRadius > 0 && dist <= this.def.detectRadius;
+        if (this.disengageSeconds > 0) this.disengageSeconds = Math.max(0, this.disengageSeconds - dtSeconds);
+        let hunting = mayHunt && this.disengageSeconds <= 0;
+        if (hunting) {
+            this.chaseSeconds += dtSeconds;
+            if (this.chaseSeconds >= CELL.predatorMaxChaseSec) {
+                hunting = false;
+                this.chaseSeconds = 0;
+                this.disengageSeconds = CELL.predatorDisengageSec;
+            }
+        } else if (!mayHunt && this.disengageSeconds <= 0) {
+            this.chaseSeconds = 0;
+        }
         const fleeing = shouldFlee(playerTier, this.def) && this.def.detectRadius > 0 && dist <= this.def.detectRadius;
 
         let speed = this.def.wanderSpeed;
@@ -84,6 +104,9 @@ export class EnemyCell {
         } else if (fleeing) {
             this.angle = Phaser.Math.Angle.Between(player.x, player.y, this.x, this.y);
             speed = this.def.chaseSpeed;
+        } else if (this.disengageSeconds > 0) {
+            this.angle = Phaser.Math.Angle.Between(this.x, this.y, this.homeX, this.homeY);
+            speed = this.def.wanderSpeed;
         } else {
             // Idle drift: a continuous gentle heading wander (Tier 1) instead of
             // the old occasional random flick — organelles glide, not twitch.

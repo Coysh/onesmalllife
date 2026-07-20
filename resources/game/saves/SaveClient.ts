@@ -29,11 +29,18 @@ export class SaveClient {
             ...(this.baseState.traits as object),
             active: snap.traits,
         };
+        // Per-stage state is merged, not replaced: crossing into a new stage
+        // must not wipe what earlier stages recorded.
+        const stageState = snap.stageState
+            ? { ...(this.baseState.stageState as Record<string, unknown>), [snap.stage]: snap.stageState }
+            : this.baseState.stageState;
+
         const state = {
             ...this.baseState,
             progress,
             traits,
             resources: snap.resources,
+            ...(stageState ? { stageState } : {}),
         };
 
         // Seconds played since the last save — the server accumulates this.

@@ -44,6 +44,13 @@ export interface StageAction {
      * presentation concern — the engine resolves every action the same way.
      */
     anchor?: string;
+    availableFromEra?: 'bronze' | 'iron' | 'classical';
+}
+
+export interface ActionAvailability {
+    allowed: boolean;
+    reason: 'available' | 'maxed' | 'missing-requirement' | 'insufficient-resources' | 'era-locked' | 'no-target';
+    message: string | null;
 }
 
 export interface StageObjective {
@@ -90,6 +97,23 @@ export interface StageEvent {
     severity?: 'minor' | 'major';
 }
 
+/**
+ * What kind of world a star system holds. Every system must justify the
+ * journey, so type drives both what a colony there produces and how the system
+ * reads on the chart.
+ */
+export type WorldType = 'temperate' | 'ocean' | 'ash' | 'frozen' | 'gas' | 'ruin';
+
+/** At most one per system — the reason it is worth crossing the dark for. */
+export type WorldFeature = 'natives' | 'anomaly' | 'hazard' | 'derelict';
+
+export interface StageWorld {
+    type: WorldType;
+    feature?: WorldFeature;
+    /** Population ceiling for a colony founded here. */
+    capacity: number;
+}
+
 export interface StageSite {
     id: string;
     label: string;
@@ -97,14 +121,16 @@ export interface StageSite {
     y: number; // 0..1 of map height
     kind: string; // 'resource' | 'village' | 'colony_target' | ...
     resource?: string;
-    /** Space stage: founding a colony here adds this rate bonus. */
-    rateBonus?: Record<string, number>;
+    /** Space stage: the world waiting in this system. */
+    world?: StageWorld;
 }
 
 export interface StageMap {
     style: 'tribal' | 'era' | 'planet' | 'starmap';
     home: { x: number; y: number }; // 0..1 of map size
     sites: StageSite[];
+    /** Override the world size in px. Sites are normalised, so nothing moves. */
+    size?: { width: number; height: number };
 }
 
 export type RivalArchetype = 'aggressive' | 'trader' | 'builder' | 'enigmatic';
@@ -129,6 +155,12 @@ export interface OnboardingStep {
 
 export interface StageMechanics {
     cityBuild?: boolean;
+    /**
+     * The stage does not end the moment its objective is met — the player
+     * chooses when to finish it. For a sandbox finale, reaching the number is
+     * permission to leave, not an eviction.
+     */
+    endOnDemand?: boolean;
     conquest?: boolean;
     tradeRoutes?: boolean;
     eras?: boolean;
@@ -210,6 +242,26 @@ export interface RivalState {
     conquerCooldown: number;
 }
 
+export type ColonySpecialisation = 'research' | 'industry' | 'legacy';
+
+/**
+ * A settled world. Colonies are entities, not a one-off `perTick` bump: their
+ * output is derived from this record every tick, so a colony that is lost also
+ * takes its production with it.
+ */
+export interface Colony {
+    siteId: string;
+    name: string;
+    worldType: WorldType;
+    population: number;
+    capacity: number;
+    specialisation: ColonySpecialisation | null;
+    /** Sim-seconds at founding — the epilogue reads this back. */
+    founded: number;
+    /** Blunts a raid on this colony; decays like a rival's. */
+    defense: number;
+}
+
 export interface ManagementState {
     defId: string;
     resources: Record<string, { value: number; perTick: number }>;
@@ -218,8 +270,12 @@ export interface ManagementState {
     rivals: RivalState[];
     /** Revealed fog circles (0..1 map coords). Home is always revealed. */
     discovered: { x: number; y: number; r: number }[];
-    /** Sites claimed by a rival (space: lost systems) or by you (colonies). */
-    claimedSites: { siteId: string; by: 'you' | 'rival' }[];
+    /** Your colonies — real places, not a permanent rate bonus. */
+    colonies: Colony[];
+    /** Site ids taken by a rival power (space: systems lost to the Elders). */
+    rivalClaims: string[];
+    /** Site ids whose world has already been encountered, so it fires once. */
+    encountered: string[];
 }
 
 /** Archetype personality multipliers, applied in tickRivals. */
@@ -252,25 +308,164 @@ function defaultRivals(def: StageDef, fallbackName: string): RivalState[] {
     }));
 }
 
+/**
+ * Everything about a strategic stage worth carrying across a reload. Resources
+ * live in the save's own `resources` block; this is the rest — the map you have
+ * charted, the worlds you hold, and who you have met.
+ */
+export interface SavedManagement {
+    taken?: string[];
+    discovered?: { x: number; y: number; r: number }[];
+    colonies?: Colony[];
+    rivalClaims?: string[];
+    encountered?: string[];
+    rivals?: RivalState[];
+}
+
+/** Coerce an untrusted saved value into a usable array. */
+const asArray = <T>(value: unknown): T[] | null => (Array.isArray(value) ? (value as T[]) : null);
+
 export function initManagement(
     def: StageDef,
     seed?: Record<string, number>,
     fallbackRivalName = 'A rival power',
+    saved?: SavedManagement,
 ): ManagementState {
     const resources: ManagementState['resources'] = {};
     for (const r of def.resources) {
         resources[r.id] = { value: seed?.[r.id] ?? r.start, perTick: r.perTick };
     }
     const home = def.map?.home ?? { x: 0.25, y: 0.5 };
+
+    // Rates granted by past decisions are not stored — they are re-derived by
+    // replaying what was taken, so the save stays small and cannot drift.
+    const taken = asArray<string>(saved?.taken) ?? [];
+    for (const id of taken) {
+        const action = def.actions.find((a) => a.id === id);
+        if (!action) continue;
+        for (const [res, delta] of Object.entries(action.rate)) {
+            if (resources[res]) resources[res] = { ...resources[res], perTick: resources[res].perTick + delta };
+        }
+    }
+
+    const savedRivals = asArray<RivalState>(saved?.rivals);
     return {
         defId: def.id,
         resources,
-        taken: [],
+        taken,
         log: [],
-        rivals: defaultRivals(def, fallbackRivalName),
-        discovered: [{ x: home.x, y: home.y, r: def.fog?.revealRadius ?? 0.2 }],
-        claimedSites: [],
+        // Powers met in play are part of the saved set, so restore it whole.
+        rivals: savedRivals?.length
+            ? savedRivals.map((r) => ({ ...r, defeated: r.defeated ?? false, conquerCooldown: r.conquerCooldown ?? 0 }))
+            : defaultRivals(def, fallbackRivalName),
+        discovered: asArray<{ x: number; y: number; r: number }>(saved?.discovered)
+            ?? [{ x: home.x, y: home.y, r: def.fog?.revealRadius ?? 0.2 }],
+        colonies: asArray<Colony>(saved?.colonies) ?? [],
+        rivalClaims: asArray<string>(saved?.rivalClaims) ?? [],
+        encountered: asArray<string>(saved?.encountered) ?? [],
     };
+}
+
+/** The slice of state the client should hand back to the server. */
+export function saveManagement(state: ManagementState): SavedManagement {
+    return {
+        taken: state.taken,
+        discovered: state.discovered,
+        colonies: state.colonies,
+        rivalClaims: state.rivalClaims,
+        encountered: state.encountered,
+        rivals: state.rivals,
+    };
+}
+
+/**
+ * Add a power discovered in play rather than authored in the stage data —
+ * first contact with a species found out among the stars. They arrive already
+ * discovered: you are looking straight at them.
+ */
+export function addRival(state: ManagementState, rival: Omit<RivalState, 'defeated' | 'conquerCooldown'>): ManagementState {
+    if (state.rivals.some((r) => r.id === rival.id)) return state;
+    return {
+        ...state,
+        rivals: [...state.rivals, { ...rival, defeated: false, conquerCooldown: 0 }],
+        log: [`First contact: ${rival.name}.`, ...state.log].slice(0, 8),
+    };
+}
+
+// ---- Colonies ---------------------------------------------------------------
+
+/** What a world of each type yields per second at full population. */
+const WORLD_YIELD: Record<WorldType, Record<string, number>> = {
+    temperate: { legacy: 0.10, research: 0.04 },
+    ocean: { legacy: 0.08, research: 0.06 },
+    ash: { alloy: 0.12 },
+    frozen: { research: 0.09 },
+    gas: { alloy: 0.16 },
+    ruin: { research: 0.12, legacy: 0.05 },
+};
+
+/** A specialisation pushes the colony toward one resource. */
+const SPECIALISATION_RESOURCE: Record<ColonySpecialisation, string> = {
+    research: 'research',
+    industry: 'alloy',
+    legacy: 'legacy',
+};
+
+export const COLONY = {
+    specialisationBonus: 0.12,
+    growthPerSec: 0.12,
+    defenseDecayPerSec: 0.5,
+    /** A colony contributes half its yield when new, all of it when full. */
+    minYieldScale: 0.5,
+} as const;
+
+/** Deterministic name for a colony, so the same system always settles alike. */
+function colonyName(site: StageSite): string {
+    const suffixes = ['Landing', 'Reach', 'Haven', 'Anchorage', 'Hold', 'Rest'];
+    let hash = 0;
+    for (const ch of site.id) hash = (hash * 31 + ch.charCodeAt(0)) & 0x7fffffff;
+    const stem = site.label.split(' ')[0];
+    return `${stem} ${suffixes[hash % suffixes.length]}`;
+}
+
+/**
+ * Live per-second output of every colony. Added on top of the stage's base
+ * rates each tick rather than folded into them, so losing a colony is felt.
+ */
+export function colonyRates(state: ManagementState): Record<string, number> {
+    const rates: Record<string, number> = {};
+    const add = (res: string, amount: number) => {
+        rates[res] = (rates[res] ?? 0) + amount;
+    };
+
+    for (const colony of state.colonies) {
+        const fullness = colony.capacity > 0 ? colony.population / colony.capacity : 1;
+        const scale = COLONY.minYieldScale + Math.min(1, fullness) * (1 - COLONY.minYieldScale);
+        for (const [res, amount] of Object.entries(WORLD_YIELD[colony.worldType] ?? {})) {
+            add(res, amount * scale);
+        }
+        if (colony.specialisation) {
+            add(SPECIALISATION_RESOURCE[colony.specialisation], COLONY.specialisationBonus * scale);
+        }
+    }
+    return rates;
+}
+
+/** Colonies fill up over time and their defences lapse. */
+export function tickColonies(state: ManagementState, dtSeconds: number): ManagementState {
+    if (state.colonies.length === 0) return state;
+    return {
+        ...state,
+        colonies: state.colonies.map((c) => ({
+            ...c,
+            population: Math.min(c.capacity, c.population + COLONY.growthPerSec * dtSeconds),
+            defense: Math.max(0, c.defense - COLONY.defenseDecayPerSec * dtSeconds),
+        })),
+    };
+}
+
+export function colonyBySite(state: ManagementState, siteId: string): Colony | undefined {
+    return state.colonies.find((c) => c.siteId === siteId);
 }
 
 /**
@@ -280,10 +475,11 @@ export function initManagement(
  */
 export function tickManagement(state: ManagementState, dtSeconds: number, def?: StageDef): ManagementState {
     const stalledObjective = def && ecologyStalled(state, def) ? def.objective.resource : null;
+    const fromColonies = colonyRates(state);
     const resources = { ...state.resources };
     for (const id of Object.keys(resources)) {
         const r = resources[id];
-        const rate = id === stalledObjective && r.perTick > 0 ? 0 : r.perTick;
+        const rate = (id === stalledObjective && r.perTick > 0 ? 0 : r.perTick) + (fromColonies[id] ?? 0);
         resources[id] = { ...r, value: Math.max(0, r.value + rate * dtSeconds) };
     }
     return { ...state, resources };
@@ -320,14 +516,33 @@ export function actionCost(action: StageAction, times: number): Record<string, n
 }
 
 export function canTakeAction(state: ManagementState, def: StageDef, actionId: string): boolean {
+    return actionAvailability(state, def, actionId).allowed;
+}
+
+/** The UI needs the reason, not merely a disabled button. */
+export function actionAvailability(state: ManagementState, def: StageDef, actionId: string): ActionAvailability {
     const action = def.actions.find((a) => a.id === actionId);
-    if (!action) return false;
+    if (!action) return { allowed: false, reason: 'no-target', message: 'No valid target' };
     const times = timesTaken(state, actionId);
-    if (action.once && times > 0) return false;
-    if (action.maxRepeat !== undefined && times >= action.maxRepeat) return false;
-    if (!action.requires.every((r) => state.taken.includes(r))) return false;
-    if (action.special === 'colonise' && colonisableSites(state, def).length === 0) return false;
-    return Object.entries(actionCost(action, times)).every(([res, amount]) => (state.resources[res]?.value ?? 0) >= amount);
+    if (action.once && times > 0) return { allowed: false, reason: 'maxed', message: 'Already completed' };
+    if (action.maxRepeat !== undefined && times >= action.maxRepeat) return { allowed: false, reason: 'maxed', message: `Built ${times}/${action.maxRepeat}` };
+    if (action.availableFromEra) {
+        const order = ['bronze', 'iron', 'classical'];
+        const active = currentEra(state, def)?.id ?? 'bronze';
+        if (order.indexOf(active) < order.indexOf(action.availableFromEra)) {
+            return { allowed: false, reason: 'era-locked', message: `Unlocks in the ${action.availableFromEra[0].toUpperCase()}${action.availableFromEra.slice(1)} Age` };
+        }
+    }
+    const missing = action.requires.find((r) => !state.taken.includes(r));
+    if (missing) return { allowed: false, reason: 'missing-requirement', message: `Requires: ${def.actions.find((a) => a.id === missing)?.label ?? missing}` };
+    if (action.special === 'colonise' && colonisableSites(state, def).length === 0) return { allowed: false, reason: 'no-target', message: 'No valid target' };
+    const short = Object.entries(actionCost(action, times)).find(([res, amount]) => (state.resources[res]?.value ?? 0) < amount);
+    if (short) {
+        const [id, amount] = short;
+        const label = def.resources.find((r) => r.id === id)?.label ?? id;
+        return { allowed: false, reason: 'insufficient-resources', message: `Need ${Math.ceil(amount - (state.resources[id]?.value ?? 0))} more ${label}` };
+    }
+    return { allowed: true, reason: 'available', message: null };
 }
 
 export function takeAction(state: ManagementState, def: StageDef, actionId: string): ManagementState {
@@ -427,38 +642,163 @@ export interface ColoniseResult {
     site: StageSite | null;
 }
 
-/**
- * Found a colony at the nearest revealed, unclaimed colony_target site; the
- * site's rateBonus is added permanently. Returns null site if none available
- * (the scene should gate the action on this).
- */
+/** Systems that are revealed, unclaimed, and hold a world worth settling. */
 export function colonisableSites(state: ManagementState, def: StageDef): StageSite[] {
-    const claimed = new Set(state.claimedSites.map((c) => c.siteId));
+    const taken = new Set([...state.colonies.map((c) => c.siteId), ...state.rivalClaims]);
     return (def.map?.sites ?? []).filter(
-        (s) => s.kind === 'colony_target' && !claimed.has(s.id) && isRevealed(state, s.x, s.y),
+        (s) => s.kind === 'colony_target' && !taken.has(s.id) && isRevealed(state, s.x, s.y),
     );
 }
 
-export function applyColonise(state: ManagementState, def: StageDef): ColoniseResult {
-    const home = def.map?.home ?? { x: 0.25, y: 0.5 };
-    const open = colonisableSites(state, def)
-        .sort((a, b) => Math.hypot(a.x - home.x, a.y - home.y) - Math.hypot(b.x - home.x, b.y - home.y));
+/**
+ * Settle a specific system. The caller names the target — you colonise the
+ * world you travelled to, not whichever happens to lie nearest home.
+ */
+export function applyColonise(
+    state: ManagementState,
+    def: StageDef,
+    siteId?: string,
+    foundedAt = 0,
+): ColoniseResult {
+    const open = colonisableSites(state, def);
     if (open.length === 0) return { state, site: null };
 
-    const site = open[0];
-    const resources = { ...state.resources };
-    for (const [res, delta] of Object.entries(site.rateBonus ?? {})) {
-        if (resources[res]) resources[res] = { ...resources[res], perTick: resources[res].perTick + delta };
-    }
+    // With no explicit target, fall back to the nearest open system to home so
+    // older callers (and the pacing sim) still work.
+    const home = def.map?.home ?? { x: 0.25, y: 0.5 };
+    const site = siteId
+        ? open.find((s) => s.id === siteId)
+        : [...open].sort((a, b) => Math.hypot(a.x - home.x, a.y - home.y) - Math.hypot(b.x - home.x, b.y - home.y))[0];
+    if (!site) return { state, site: null };
+
+    const world = site.world;
+    const colony: Colony = {
+        siteId: site.id,
+        name: colonyName(site),
+        worldType: world?.type ?? 'temperate',
+        population: 1,
+        capacity: world?.capacity ?? 6,
+        specialisation: null,
+        founded: foundedAt,
+        defense: 0,
+    };
+
     return {
         state: {
             ...state,
-            resources,
-            claimedSites: [...state.claimedSites, { siteId: site.id, by: 'you' }],
-            log: [`A colony took root in ${site.label}.`, ...state.log].slice(0, 8),
+            colonies: [...state.colonies, colony],
+            log: [`${colony.name} took root in ${site.label}.`, ...state.log].slice(0, 8),
         },
         site,
     };
+}
+
+// ---- Colony actions ---------------------------------------------------------
+
+export type ColonyActionKind = 'specialise' | 'expand' | 'fortify';
+
+export interface ColonyActionDef {
+    id: string;
+    label: string;
+    description: string;
+    kind: ColonyActionKind;
+    /** Only for 'specialise'. */
+    specialisation?: ColonySpecialisation;
+    costResource: string;
+    cost: number;
+}
+
+export const COLONY_ACTION_COST = {
+    specialise: 25,
+    expand: 30,
+    fortify: 18,
+} as const;
+
+/**
+ * What can be done at a colony. A world may be specialised once; after that the
+ * specialisation options drop away and only growth and defence remain.
+ */
+export function colonyActions(colony: Colony): ColonyActionDef[] {
+    const actions: ColonyActionDef[] = [];
+
+    if (colony.specialisation === null) {
+        actions.push(
+            {
+                id: 'col_spec_research', label: 'Found a research station', kind: 'specialise',
+                specialisation: 'research', description: 'Turn this world toward study. Adds to your research.',
+                costResource: 'alloy', cost: COLONY_ACTION_COST.specialise,
+            },
+            {
+                id: 'col_spec_industry', label: 'Open the foundries', kind: 'specialise',
+                specialisation: 'industry', description: 'Work the world for metal. Adds to your alloy.',
+                costResource: 'research', cost: COLONY_ACTION_COST.specialise,
+            },
+            {
+                id: 'col_spec_legacy', label: 'Raise a settlement proper', kind: 'specialise',
+                specialisation: 'legacy', description: 'A place your people will call home. Adds to your legacy.',
+                costResource: 'alloy', cost: COLONY_ACTION_COST.specialise,
+            },
+        );
+    }
+
+    actions.push(
+        {
+            id: 'col_expand', label: 'Expand the colony', kind: 'expand',
+            description: 'More room to grow — raises this world\'s ceiling.',
+            costResource: 'alloy', cost: COLONY_ACTION_COST.expand,
+        },
+        {
+            id: 'col_fortify', label: 'Ring it with defences', kind: 'fortify',
+            description: 'Shield the colony against whatever comes for it.',
+            costResource: 'alloy', cost: COLONY_ACTION_COST.fortify,
+        },
+    );
+
+    return actions;
+}
+
+export function canTakeColonyAction(state: ManagementState, actionId: string, siteId: string): boolean {
+    const colony = colonyBySite(state, siteId);
+    if (!colony) return false;
+    const action = colonyActions(colony).find((a) => a.id === actionId);
+    if (!action) return false;
+    if (action.kind === 'fortify' && colony.defense >= 100) return false;
+    return (state.resources[action.costResource]?.value ?? 0) >= action.cost;
+}
+
+export function applyColonyAction(state: ManagementState, actionId: string, siteId: string): ManagementState {
+    if (!canTakeColonyAction(state, actionId, siteId)) return state;
+    const colony = colonyBySite(state, siteId)!;
+    const action = colonyActions(colony).find((a) => a.id === actionId)!;
+
+    const resources = { ...state.resources };
+    resources[action.costResource] = {
+        ...resources[action.costResource],
+        value: resources[action.costResource].value - action.cost,
+    };
+
+    let note = '';
+    const colonies = state.colonies.map((c) => {
+        if (c.siteId !== siteId) return c;
+        const next = { ...c };
+        switch (action.kind) {
+            case 'specialise':
+                next.specialisation = action.specialisation ?? null;
+                note = `${c.name}: ${action.label.toLowerCase()}.`;
+                break;
+            case 'expand':
+                next.capacity = c.capacity + 4;
+                note = `${c.name} has room to grow.`;
+                break;
+            case 'fortify':
+                next.defense = Math.min(100, c.defense + 34);
+                note = `${c.name} stands guarded.`;
+                break;
+        }
+        return next;
+    });
+
+    return { ...state, resources, colonies, log: [note, ...state.log].slice(0, 8) };
 }
 
 // ---- Rival factions (brief §20, multi-rival since v2) -----------------------
@@ -552,15 +892,18 @@ export function rivalMilestones(state: ManagementState, def: StageDef): Mileston
 
         let claimedSiteId: string | null = null;
         if (def.milestoneEffect === 'claimSite') {
-            const claimed = new Set(next.claimedSites.map((c) => c.siteId));
+            // Only settleable systems the player has actually seen: a rival
+            // taking a system you never knew existed reads as nothing at all,
+            // and taking a non-colony site makes the log lie.
+            const taken = new Set([...next.colonies.map((c) => c.siteId), ...next.rivalClaims]);
             const open = (def.map?.sites ?? [])
-                .filter((s) => !claimed.has(s.id))
+                .filter((s) => s.kind === 'colony_target' && !taken.has(s.id) && isRevealed(next, s.x, s.y))
                 .sort((a, b) => Math.hypot(a.x - rival.x, a.y - rival.y) - Math.hypot(b.x - rival.x, b.y - rival.y));
             if (open.length > 0) {
                 claimedSiteId = open[0].id;
                 next = {
                     ...next,
-                    claimedSites: [...next.claimedSites, { siteId: claimedSiteId, by: 'rival' }],
+                    rivalClaims: [...next.rivalClaims, claimedSiteId],
                     log: [`${rival.name} claimed ${open[0].label}.`, ...next.log].slice(0, 8),
                 };
             }

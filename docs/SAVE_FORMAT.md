@@ -118,7 +118,13 @@ own table (brief §22).
   "unlocks": { "traitsUnlocked": ["biology:membrane_ii"], "stagesUnlocked": ["cell"] },
   "endingProgress": { "pillarScores": {} },
   "stageState": {
-    "cell": { "objectiveId": "reach_multicellular", "objectiveProgress": 0.35, "position": { "x": 512, "y": 300 } }
+    "cell": { "objectiveId": "reach_multicellular", "objectiveProgress": 0.35, "position": { "x": 512, "y": 300 } },
+    "creature": {
+      "version": 1,
+      "equipped": { "locomotion": "steady-legs", "feeding": "grazing-jaws", "adaptation": "watchful-senses" },
+      "unlocked": ["steady-legs", "grazing-jaws", "hunting-fangs", "watchful-senses"],
+      "collected": []
+    }
   },
   "checkpoint": { "lastSafeStage": "cell", "at": "2026-07-18T22:40:00Z" }
 }

@@ -13,7 +13,7 @@ export class Food {
     consumed = false; // guard: not edible again until it respawns
     private respawnIn = 0; // seconds of sim time until respawn
 
-    constructor(private scene: Phaser.Scene, readonly x: number, readonly y: number) {
+    constructor(private scene: Phaser.Scene, readonly x: number, readonly y: number, readonly foodValue = 1, private readonly regrowSeconds = CREATURE.foodRespawnSec) {
         const berry = scene.add.circle(0, 0, CREATURE.foodRadius, COLORS.food);
         const leaf = scene.add.ellipse(CREATURE.foodRadius * 0.4, -CREATURE.foodRadius * 0.7, CREATURE.foodRadius * 0.9, CREATURE.foodRadius * 0.5, COLORS.brandDeep);
         this.sprite = scene.add.container(x, y, [leaf, berry]).setDepth(5);
@@ -34,7 +34,7 @@ export class Food {
 
     eat(): void {
         this.consumed = true;
-        this.respawnIn = CREATURE.foodRespawnSec;
+        this.respawnIn = this.regrowSeconds;
         this.scene.tweens.add({
             targets: this.sprite,
             scale: 1.5,

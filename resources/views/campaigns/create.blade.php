@@ -69,10 +69,20 @@
                     </div>
 
                     <div class="space-y-2" id="stats" aria-live="polite">
-                        @foreach (['speed' => 'Speed', 'attack' => 'Attack', 'defense' => 'Defense', 'sense' => 'Sense', 'efficiency' => 'Efficiency'] as $key => $label)
+                        @foreach ([
+                            'speed' => ['Speed', 'How quickly your cell moves through the world.'],
+                            'attack' => ['Attack', 'How much damage you deal when colliding with prey or threats.'],
+                            'defense' => ['Defense', 'Reduces damage taken from hostile cells and hazards.'],
+                            'sense' => ['Sense', 'How far away food and danger can be detected or shown.'],
+                            'food-gained' => ['Food gained', 'How much energy one ordinary nutrient restores.'],
+                            'movement-cost' => ['Movement cost', 'How much energy is consumed each second while moving.'],
+                        ] as $key => [$label, $help])
                             <div>
                                 <div class="flex justify-between text-small text-content-2">
-                                    <span>{{ $label }}</span>
+                                    <span class="inline-flex items-center gap-1">{{ $label }}
+                                        <button type="button" class="relative inline-flex h-4 w-4 items-center justify-center rounded-full border border-ink-border text-[10px] focus-visible:ring-2 focus-visible:ring-[color:var(--osl-focus-ring)]" aria-describedby="stat-help-{{ $key }}" data-stat-help="{{ $key }}">i</button>
+                                        <span id="stat-help-{{ $key }}" role="tooltip" hidden class="absolute z-20 mt-24 w-52 rounded-md border border-ink-border bg-ink-surface p-2 text-left text-tooltip normal-case tracking-normal text-content shadow-lg">{{ $help }}</span>
+                                    </span>
                                     <span class="font-mono" data-stat-value="{{ $key }}">–</span>
                                 </div>
                                 <div class="h-1.5 rounded-pill bg-ink-border overflow-hidden">
@@ -140,6 +150,21 @@
             const svgNS = 'http://www.w3.org/2000/svg';
             const el = (id) => document.getElementById(id);
 
+            form.querySelectorAll('[data-stat-help]').forEach((button) => {
+                const help = document.getElementById('stat-help-' + button.dataset.statHelp);
+                if (!help) return;
+                const show = () => { help.hidden = false; };
+                const hide = () => { if (button.dataset.open !== 'true') help.hidden = true; };
+                button.addEventListener('mouseenter', show);
+                button.addEventListener('mouseleave', hide);
+                button.addEventListener('focus', show);
+                button.addEventListener('blur', hide);
+                button.addEventListener('click', () => {
+                    button.dataset.open = button.dataset.open === 'true' ? 'false' : 'true';
+                    help.hidden = button.dataset.open !== 'true';
+                });
+            });
+
             function chosen(slot) {
                 const input = form.querySelector('input[name="' + slot + '"]:checked');
                 return input ? input.value : null;
@@ -165,10 +190,8 @@
                     attack: { value: BASE.attack + sum.attack, pct: (BASE.attack + sum.attack) * 4 },
                     defense: { value: BASE.defense + sum.defense, pct: (BASE.defense + sum.defense) * 8 },
                     sense: { value: BASE.sense + sum.senseRadius, pct: (BASE.sense + sum.senseRadius) / 11 },
-                    efficiency: {
-                        value: (BASE.energyPerMote + sum.energyPerMote) + ' / ' + (BASE.drain + sum.energyDrain).toFixed(1),
-                        pct: 50 + sum.energyPerMote * 8 - sum.energyDrain * 14,
-                    },
+                    'food-gained': { value: (BASE.energyPerMote + sum.energyPerMote) + ' energy per mote', pct: 50 + sum.energyPerMote * 8 },
+                    'movement-cost': { value: (BASE.drain + sum.energyDrain).toFixed(1) + ' energy per second', pct: 50 - sum.energyDrain * 14 },
                 };
                 for (const [key, s] of Object.entries(stats)) {
                     form.querySelector('[data-stat-value="' + key + '"]').textContent = s.value;

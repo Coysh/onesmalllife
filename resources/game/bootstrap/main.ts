@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { DESIGN_WIDTH, DESIGN_HEIGHT, COLORS } from '../config';
 import { CellScene, type CellSceneData } from '../scenes/CellScene';
-import { CreatureScene, type CreatureSceneData } from '../scenes/CreatureScene';
+import { CreatureScene, type CreatureSceneData, type CreatureBuildState } from '../scenes/CreatureScene';
+import type { SavedManagement } from '../systems/managementState';
 import { ManagementScene, type ManagementSceneData } from '../scenes/ManagementScene';
 import { CityScene } from '../scenes/strategic/CityScene';
 import { EventBus } from './events';
@@ -13,6 +14,7 @@ import { EventModalController } from '../ui/EventModalController';
 import { OnboardingController } from '../ui/OnboardingController';
 import { DietController } from '../ui/DietController';
 import { AdaptController } from '../ui/AdaptController';
+import { CreatureBuilderController } from '../ui/CreatureBuilderController';
 import { SelectionBarController } from '../ui/SelectionBarController';
 import { TransitionController } from '../ui/TransitionController';
 import { DevToolsController } from '../ui/DevToolsController';
@@ -86,6 +88,7 @@ function boot(): void {
     new OnboardingController(hudEl, bus);
     new DietController(hudEl, bus);
     new AdaptController(hudEl, bus);
+    new CreatureBuilderController(hudEl, bus);
     new SelectionBarController(hudEl, bus);
     new TransitionController(hudEl, bus);
     new DevToolsController(hudEl, bus);
@@ -165,6 +168,9 @@ function boot(): void {
             species,
             stageId: stage,
             resources,
+            // What this stage recorded last time: the charted map, the worlds
+            // held, and the powers met.
+            stageState: (state.stageState as Record<string, SavedManagement> | undefined)?.[stage],
             traits: inheritedTraits,
             freePlay: completed, // a finished lineage keeps playing without re-completing
         };
@@ -181,6 +187,7 @@ function boot(): void {
             palette,
             appearance,
             diet: resources?.diet === 1 ? 'carnivore' : resources?.diet === 0 ? 'herbivore' : undefined,
+            stageState: (state.stageState as Record<string, CreatureBuildState> | undefined)?.creature,
         };
         game.scene.add('Creature', CreatureScene, true, data);
     } else {

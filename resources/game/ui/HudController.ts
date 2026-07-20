@@ -85,12 +85,25 @@ export class HudController {
         let paused = false;
         const setPaused = (next: boolean) => {
             paused = next;
-            this.bus.emit(paused ? 'intent:pause' : 'intent:resume', undefined);
+            this.bus.emit('intent:pause-change', { source: 'manual', paused });
             if (overlay) overlay.hidden = !paused;
-            if (pauseBtn) pauseBtn.setAttribute('aria-pressed', String(paused));
+            if (pauseBtn) {
+                pauseBtn.setAttribute('aria-pressed', String(paused));
+                pauseBtn.innerHTML = `<span aria-hidden="true">${paused ? '▶' : '⏸'}</span> ${paused ? 'Resume' : 'Pause'}`;
+            }
         };
         pauseBtn?.addEventListener('click', () => setPaused(!paused));
         this.root.querySelector('[data-action="resume"]')?.addEventListener('click', () => setPaused(false));
+        this.bus.on('game:pause-state', ({ sources }) => {
+            const manual = sources.includes('manual');
+            if (paused === manual) return;
+            paused = manual;
+            if (overlay) overlay.hidden = !manual;
+            if (pauseBtn) {
+                pauseBtn.setAttribute('aria-pressed', String(manual));
+                pauseBtn.innerHTML = `<span aria-hidden="true">${manual ? '▶' : '⏸'}</span> ${manual ? 'Resume' : 'Pause'}`;
+            }
+        });
 
         this.root.querySelector('[data-action="retry"]')?.addEventListener('click', () => {
             const overlay = this.root.querySelector<HTMLElement>('[data-overlay="death"]');

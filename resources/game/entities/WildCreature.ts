@@ -127,6 +127,22 @@ export class WildCreature implements Mover {
         this.scene.tweens.add({ targets: this.body, scale: 1.25, duration: 160, yoyo: true, ease: 'Quad.easeOut' });
     }
 
+    /** Push a predator visibly away after it lands a hit. */
+    recoilFrom(x: number, y: number, distance = 70): void {
+        let dx = this.x - x;
+        let dy = this.y - y;
+        if (dx === 0 && dy === 0) {
+            dx = Math.cos(this.angle);
+            dy = Math.sin(this.angle);
+        }
+        const length = Math.hypot(dx, dy) || 1;
+        const nx = Phaser.Math.Clamp(this.x + (dx / length) * distance, this.bounds.left, this.bounds.right);
+        const ny = Phaser.Math.Clamp(this.y + (dy / length) * distance, this.bounds.top, this.bounds.bottom);
+        if (!inWater(this.waters, nx, ny, this.def.radius * 0.5)) this.container.setPosition(nx, ny);
+        this.angle = Math.atan2(dy, dx);
+        this.body.rotation = this.angle;
+    }
+
     /**
      * Prey: caught (by the player or a predator) — pop, then respawn near home
      * after `delaySeconds` (the scene scales this with population so a thinned
@@ -256,6 +272,8 @@ export class WildCreature implements Mover {
             if (inWater(this.waters, nx, ny, this.def.radius * 0.5)) {
                 // Water is impassable: turn away and try again next frame.
                 this.angle += Math.PI + (this.behaviourRng.next() - 0.5) * 0.8;
+                // Commit the turn immediately: body heading must match actual movement.
+                this.body.rotation = this.angle;
             } else {
                 this.container.setPosition(nx, ny);
             }

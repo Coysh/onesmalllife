@@ -19,10 +19,18 @@ import {
     applyEventEffects,
     applyScout,
     applyColonise,
+    colonyBySite,
+    colonyActions,
+    canTakeColonyAction,
+    applyColonyAction,
+    addRival,
+    isRevealed,
+    revealAt,
     emergeRivals,
     objectiveProgress,
     isManagementComplete,
     tickRivals,
+    tickColonies,
     rivalRaid,
     rivalMilestones,
     rivalRaceProgress,
@@ -34,7 +42,9 @@ import {
     actionsForAnchor,
     actionAnchor,
     actionCost,
+    actionAvailability,
     timesTaken,
+    saveManagement,
     councilActions,
     ecologyStalled,
     currentEra,
@@ -43,11 +53,14 @@ import {
     type StageEvent,
     type ManagementState,
     type RivalState,
+    type StageSite,
+    type SavedManagement,
+    type Colony,
 } from '../systems/managementState';
 import { nextStageId } from '../lib/stages';
-import type { EventBus, ManagementActionView } from '../bootstrap/events';
+import type { EventBus, ManagementActionView, PauseSource } from '../bootstrap/events';
 
-type Selection = { kind: 'home' | 'site' | 'rival'; id: string };
+type Selection = { kind: 'home' | 'site' | 'rival' | 'colony'; id: string };
 
 /** A glyph representing each event kind, for the modal + a floating map badge. */
 const EVENT_ICONS: Record<string, string> = {
@@ -56,6 +69,30 @@ const EVENT_ICONS: Record<string, string> = {
     strike: '✊', secession: '🚩', signal: '📡', discovery: '🛸', flare: '☀️',
     launch: '🚀', anomaly: '❖', raid: '⚔️', festival: '🎆', eclipse: '🌑',
     colony: '🪐', uprising: '🔥', sanctions: '⛔',
+};
+
+/**
+ * Flight tuning. Zoom sits outside the strategic clamp (0.55–1.9) because
+ * piloting wants a closer, faster-reading view than the chart does.
+ */
+const FLIGHT_ZOOM = 1.15;
+const FLIGHT_SPEED = 700; // world px/s at full thrust
+const FLIGHT_ACCEL_LERP = 3.2;
+const FLIGHT_DRAG_LERP = 0.9; // released controls coast a long way
+const FLIGHT_BURN_PER_SEC = 1.6; // alloy spent while under power
+const ARRIVAL_RADIUS = 200; // world px within which you have "made orbit"
+/** How far the view pulls back between a standstill and full speed. */
+const FLIGHT_ZOOM_SPREAD = 0.28;
+const TURN_RATE = 6; // radians/s the hull swings toward its heading
+const DUST_COUNT = 140;
+const DUST_FIELD = 2600; // world px square the dust is recycled within
+
+/** Why a system is worth the journey, in words. */
+const SYSTEM_FEATURE_LABEL: Record<string, string> = {
+    natives: 'something lives here',
+    anomaly: 'an anomaly reads on the instruments',
+    hazard: 'hazardous',
+    derelict: 'something was here before you',
 };
 
 function eventIcon(kind: string | undefined): string {
@@ -70,6 +107,8 @@ export interface ManagementSceneData {
     species: string;
     stageId: string; // tribe | civilisation | planetary | space
     resources?: Record<string, number>;
+    /** Restored per-stage state: map charted, colonies, powers met. */
+    stageState?: SavedManagement;
     traits?: string[];
     freePlay?: boolean; // completed lineage: keep managing without re-completing
 }
@@ -89,6 +128,7 @@ export class ManagementScene extends Phaser.Scene {
     protected species = 'Your lineage';
     protected stageId = 'tribe';
     private seedResources?: Record<string, number>;
+    private savedStageState?: SavedManagement;
     private freePlay = false;
 
     protected def!: StageDef;
@@ -98,7 +138,7 @@ export class ManagementScene extends Phaser.Scene {
     protected theatre!: EventTheatre;
     private minimap!: Minimap;
     private speedMultiplier = 1;
-    protected paused = false;
+    protected pauseSources = new Set<PauseSource>();
     private ended = false;
     private accumulator = 0;
     private minimapAccumulator = 0;
@@ -140,6 +180,32 @@ export class ManagementScene extends Phaser.Scene {
     /** Ids fired recently, newest first — used to avoid repeats. */
     private recentEventIds: string[] = [];
 
+    // ---- Flight mode (space) ------------------------------------------------
+    /**
+     * Piloting is a distinct mode, not an overlay on the strategy controls:
+     * while flying, drag-to-pan and click-to-select are off, the camera follows
+     * the ship, and zoom leaves the strategic clamp. The simulation keeps
+     * running underneath, which is what makes distance cost something.
+     */
+    private flying = false;
+    private ship?: Phaser.GameObjects.Image;
+    private shipVel = { x: 0, y: 0 };
+    private flightKeys?: Record<'up' | 'down' | 'left' | 'right', Phaser.Input.Keyboard.Key[]>;
+    private escKey?: Phaser.Input.Keyboard.Key;
+    /** Systems already arrived at this flight, so arrival fires once each. */
+    private visitedThisFlight = new Set<string>();
+    /** The system whose encounter is currently open, if any. */
+    private encounterSite: StageSite | null = null;
+    /**
+     * Near-field dust recycled around the ship. The starfield is fixed in world
+     * space and reads as static at speed; these stream past the hull and are
+     * what actually sells motion.
+     */
+    private flightDust: Phaser.GameObjects.Arc[] = [];
+    private thrustPlume?: Phaser.GameObjects.Graphics;
+    /** Smoothed heading, so the ship banks into a turn instead of snapping. */
+    private shipHeading = 0;
+
     constructor(key = 'Management') {
         super(key);
     }
@@ -150,6 +216,7 @@ export class ManagementScene extends Phaser.Scene {
         this.species = data.species ?? this.species;
         this.stageId = data.stageId ?? this.stageId;
         this.seedResources = data.resources;
+        this.savedStageState = data.stageState;
         this.freePlay = data.freePlay ?? false;
     }
 
@@ -157,7 +224,7 @@ export class ManagementScene extends Phaser.Scene {
         this.def = STAGES[this.stageId] ?? STAGES.tribe;
         this.rng = new Rng(`${this.seed}:${this.stageId}:events`);
         const fallbackRival = this.rng.pick(RIVAL_NAMES);
-        this.state = initManagement(this.def, this.seedResources, fallbackRival);
+        this.state = initManagement(this.def, this.seedResources, fallbackRival, this.savedStageState);
         this.eventClock = 0;
         this.raidClock = 0;
         this.minimapAccumulator = 0;
@@ -187,6 +254,8 @@ export class ManagementScene extends Phaser.Scene {
         this.spaceInOrbit = style0 === 'starmap';
         cam.setZoom(style0 === 'planet' ? 0.8 : this.spaceInOrbit ? 3.4 : STRAT_START_ZOOM);
         cam.centerOn(this.map.home.x, this.map.home.y);
+        this.applyCameraSafeArea();
+        this.scale.on('resize', () => this.applyCameraSafeArea());
 
         // The planet wraps east–west: drop the horizontal camera bound (we clamp
         // Y and wrap X manually) and register the objects that follow the loop.
@@ -251,13 +320,11 @@ export class ManagementScene extends Phaser.Scene {
         });
         this.bus.on('intent:zoom', ({ delta }) => this.applyZoom(delta));
 
-        this.bus.on('intent:pause', () => {
-            this.paused = true;
-            this.emitSnapshot();
-        });
-        this.bus.on('intent:resume', () => (this.paused = false));
+        this.bus.on('intent:pause', () => this.setPauseSource('manual', true));
+        this.bus.on('intent:resume', () => this.setPauseSource('manual', false));
+        this.bus.on('intent:pause-change', ({ source, paused }) => this.setPauseSource(source, paused));
         this.bus.on('intent:set-speed', ({ multiplier }) => (this.speedMultiplier = multiplier));
-        this.bus.on('intent:management-action', ({ actionId, rivalId }) => this.doAction(actionId, rivalId));
+        this.bus.on('intent:management-action', ({ actionId, rivalId, siteId }) => this.doAction(actionId, rivalId, siteId));
         this.bus.on('intent:deselect', () => this.deselect());
         this.bus.on('intent:locate', ({ anchor }) => this.locate(anchor));
         this.bus.on('intent:event-choice', ({ index }) => this.resolveEvent(index));
@@ -278,6 +345,8 @@ export class ManagementScene extends Phaser.Scene {
             const current = this.state.resources[objId]?.value ?? 0;
             this.state = applyEventEffects(this.state, { [objId]: this.def.objective.target - current });
             this.emitManagement();
+            // A stage that ends on demand would otherwise sit there waiting.
+            if (this.def.mechanics?.endOnDemand && !this.freePlay) this.completeStage();
         });
 
         this.time.addEvent({ delay: 15000, loop: true, callback: () => this.emitSnapshot() });
@@ -326,28 +395,7 @@ export class ManagementScene extends Phaser.Scene {
         });
 
         // Rival markers: a campfire on land, a hostile world in space/planet.
-        for (const rival of this.state.rivals) {
-            const pos = this.map.at(rival.x, rival.y);
-            const name = this.add.text(0, -34, rival.name, { fontFamily: 'monospace', fontSize: '13px', color: '#f2795f' }).setResolution(textResolution()).setOrigin(0.5);
-            const parts: Phaser.GameObjects.GameObject[] = [];
-            if (style === 'starmap' || style === 'planet') {
-                parts.push(this.add.circle(0, 0, 20, COLORS.danger, 0.1)); // hostile glow
-                parts.push(this.add.circle(0, 0, 12, COLORS.predatorBody));
-                parts.push(this.add.circle(-3, -3, 4, COLORS.danger, 0.8)); // lit limb
-            } else {
-                parts.push(this.add.circle(0, 0, 12, COLORS.predatorBody)); // camp
-                parts.push(this.add.circle(0, 2, 5, COLORS.danger, 0.9)); // fire
-                parts.push(this.add.triangle(0, -14, 0, 0, 10, 0, 5, -12, COLORS.danger)); // banner
-            }
-            const marker = this.add.container(pos.x, pos.y, [...parts, name]).setDepth(6);
-            marker.setVisible(rival.discovered);
-            // Clicking a camp selects it — its diplomacy fills the bottom bar.
-            marker.setInteractive(new Phaser.Geom.Circle(0, 0, 30), Phaser.Geom.Circle.Contains);
-            marker.on('pointerup', () => {
-                if (this.isMapClick()) this.selectRival(rival.id);
-            });
-            this.rivalMarkers.set(rival.id, marker);
-        }
+        for (const rival of this.state.rivals) this.buildRivalMarker(rival);
 
         // Clicking the hearth selects your settlement (its build actions) — but
         // only when the stage anchors any there, on the same rule as sites
@@ -363,9 +411,11 @@ export class ManagementScene extends Phaser.Scene {
 
         // Sites with anchored actions are click targets (their actions fill
         // the bar). Flavour-only sites stay non-interactive markers so a click
-        // never opens an empty bar.
+        // never opens an empty bar — except on the starmap, where the systems
+        // ARE the content: every one can be surveyed, settled or managed.
+        const starmap = this.def.map?.style === 'starmap';
         for (const site of this.def.map?.sites ?? []) {
-            if (actionsForAnchor(this.def, `site:${site.id}`).length === 0) continue;
+            if (!starmap && actionsForAnchor(this.def, `site:${site.id}`).length === 0) continue;
             const pos = this.map.at(site.x, site.y);
             const hit = this.add.circle(pos.x, pos.y, 26, 0xffffff, 0.001).setDepth(4);
             hit.setInteractive({ useHandCursor: true });
@@ -376,6 +426,31 @@ export class ManagementScene extends Phaser.Scene {
         }
     }
 
+    /** A rival's map presence. Also used for powers met during play. */
+    protected buildRivalMarker(rival: RivalState): void {
+        const style = this.def.map?.style;
+        const pos = this.map.at(rival.x, rival.y);
+        const name = this.add.text(0, -34, rival.name, { fontFamily: 'monospace', fontSize: '13px', color: '#f2795f' }).setResolution(textResolution()).setOrigin(0.5);
+        const parts: Phaser.GameObjects.GameObject[] = [];
+        if (style === 'starmap' || style === 'planet') {
+            parts.push(this.add.circle(0, 0, 20, COLORS.danger, 0.1)); // hostile glow
+            parts.push(this.add.circle(0, 0, 12, COLORS.predatorBody));
+            parts.push(this.add.circle(-3, -3, 4, COLORS.danger, 0.8)); // lit limb
+        } else {
+            parts.push(this.add.circle(0, 0, 12, COLORS.predatorBody)); // camp
+            parts.push(this.add.circle(0, 2, 5, COLORS.danger, 0.9)); // fire
+            parts.push(this.add.triangle(0, -14, 0, 0, 10, 0, 5, -12, COLORS.danger)); // banner
+        }
+        const marker = this.add.container(pos.x, pos.y, [...parts, name]).setDepth(6);
+        marker.setVisible(rival.discovered);
+        // Clicking a camp selects it — its diplomacy fills the bottom bar.
+        marker.setInteractive(new Phaser.Geom.Circle(0, 0, 30), Phaser.Geom.Circle.Contains);
+        marker.on('pointerup', () => {
+            if (this.isMapClick()) this.selectRival(rival.id);
+        });
+        this.rivalMarkers.set(rival.id, marker);
+    }
+
     /**
      * True only for a genuine tap on the map: the press started on the canvas
      * (pointerDownOnMap) and barely moved. This rejects the stray window-level
@@ -383,7 +458,10 @@ export class ManagementScene extends Phaser.Scene {
      * the canvas — which would otherwise select/deselect behind the overlay.
      */
     private isMapClick(): boolean {
-        return this.pointerDownOnMap && this.dragMoved < 8 && this.panEnabled;
+        // Flight turns off panning, but selecting must keep working — otherwise
+        // nothing on the map can be clicked while you have the helm, which is
+        // exactly when you most want to inspect what you have just found.
+        return this.pointerDownOnMap && this.dragMoved < 8 && (this.panEnabled || this.flying);
     }
 
     // ---- Selection (contextual bottom bar) ----------------------------------
@@ -396,12 +474,36 @@ export class ManagementScene extends Phaser.Scene {
         const times = timesTaken(this.state, a.id);
         const cost = actionCost(a, times);
         const maxed = a.maxRepeat !== undefined && times >= a.maxRepeat;
+
+        // An action gated by a prerequisite must say so. Showing an affordable
+        // cost on a disabled button reads as a broken button, not a locked one.
+        const unmet = a.requires.filter((r) => !this.state.taken.includes(r));
+        const locked = unmet.length > 0;
+        const availability = actionAvailability(this.state, this.def, a.id);
+        const unmetLabels = unmet.map((r) => this.def.actions.find((x) => x.id === r)?.label ?? r);
+
+        // Ending the stage waits on the objective, not on a prerequisite chain.
+        if (a.special === 'finish') {
+            const ready = isManagementComplete(this.state, this.def);
+            return {
+                id: a.id,
+                label: a.label,
+                description: ready
+                    ? a.description
+                    : `Not yet. ${this.def.objective.label} first.`,
+                costLabel: ready ? 'End the story' : 'Not yet',
+                affordable: ready,
+                taken: false,
+                ...(located ? { locate: anchor, locationLabel: this.anchorLabel(anchor) } : {}),
+            };
+        }
+
         return {
             id: a.id,
             label: !a.once && times > 0 ? `${a.label} ×${times}` : a.label,
-            description: a.description,
-            costLabel: Object.entries(cost).map(([res, n]) => `${n} ${res}`).join(' · ') || 'free',
-            affordable: canTakeAction(this.state, this.def, a.id),
+            description: availability.message ?? (locked ? `Requires ${unmetLabels.join(', ')}.` : a.description),
+            costLabel: availability.message ?? Object.entries(cost).map(([res, n]) => `${n} ${this.def.resources.find((resource) => resource.id === res)?.label ?? res}`).join(' · ') || 'free',
+            affordable: availability.allowed,
             taken: (a.once && times > 0) || maxed,
             ...(located ? { locate: anchor, locationLabel: this.anchorLabel(anchor) } : {}),
         };
@@ -414,7 +516,7 @@ export class ManagementScene extends Phaser.Scene {
     private locate(anchor: string): void {
         if (this.ended) return;
         if (anchor === 'home') {
-            this.cameras.main.pan(this.map.home.x, this.map.home.y, 420, 'Sine.easeInOut');
+            this.focusMapPoint(this.map.home.x, this.map.home.y, 420);
             this.selectHome();
             return;
         }
@@ -422,8 +524,20 @@ export class ManagementScene extends Phaser.Scene {
         const site = this.def.map?.sites.find((s) => s.id === siteId);
         if (!site) return;
         const pos = this.map.at(site.x, site.y);
-        this.cameras.main.pan(pos.x, pos.y, 420, 'Sine.easeInOut');
+        this.focusMapPoint(pos.x, pos.y, 420);
         this.selectSite(site.id);
+    }
+
+    protected focusMapPoint(x: number, y: number, duration = 420): void {
+        this.cameras.main.pan(x, y, duration, 'Sine.easeInOut');
+    }
+
+    private applyCameraSafeArea(): void {
+        const sidebar = document.querySelector<HTMLElement>('[data-management-sidebar]');
+        const rect = this.game.canvas?.getBoundingClientRect();
+        if (!sidebar || !rect || rect.width <= 0 || window.innerWidth < 640) return;
+        const visibleWidth = this.scale.width * Math.max(0.35, 1 - sidebar.getBoundingClientRect().width / rect.width);
+        this.cameras.main.setViewport(0, 0, visibleWidth, this.scale.height);
     }
 
     /** Where an anchored decision is taken, in words. */
@@ -446,7 +560,7 @@ export class ManagementScene extends Phaser.Scene {
 
     private selectHome(): void {
         this.selected = { kind: 'home', id: 'home' };
-        this.cameras.main.pan(this.map.home.x, this.map.home.y, 400, 'Sine.easeInOut');
+        this.focusMapPoint(this.map.home.x, this.map.home.y, 400);
         this.emitSelection();
     }
 
@@ -455,7 +569,10 @@ export class ManagementScene extends Phaser.Scene {
         if (!site) return;
         const pos = this.map.at(site.x, site.y);
         if (this.map.isFogged(this.state, pos.x, pos.y)) return; // can't act on the unknown
-        this.selected = { kind: 'site', id: siteId };
+        // A settled system is a colony first: it answers with its own actions.
+        this.selected = colonyBySite(this.state, siteId)
+            ? { kind: 'colony', id: siteId }
+            : { kind: 'site', id: siteId };
         this.emitSelection();
     }
 
@@ -471,6 +588,70 @@ export class ManagementScene extends Phaser.Scene {
         this.selected = null;
         this.selectionRing?.setVisible(false);
         this.bus.emit('management:deselect', undefined);
+    }
+
+    /** What this system is, in words — world type, feature, or who holds it. */
+    private siteSublabel(site: StageSite): string | null {
+        if (site.resource) return `Rich in ${site.resource}`;
+        if (this.state.rivalClaims.includes(site.id)) return 'Held by another power';
+        const native = this.nativePowerAt(site.id);
+        if (native) return `Home of ${native.name} — select them to deal with them`;
+        const world = site.world;
+        if (!world) return null;
+        const feature = world.feature ? ` · ${SYSTEM_FEATURE_LABEL[world.feature]}` : '';
+        return `${world.type} world${feature}`;
+    }
+
+    /**
+     * Actions offered at an unsettled system. Settling is done *here*, at the
+     * system itself, rather than from an abstract Council button.
+     */
+    /** A power met in play that lives at this system, if any. */
+    private nativePowerAt(siteId: string): RivalState | undefined {
+        return this.state.rivals.find((r) => r.id === `native:${siteId}` && r.present && !r.defeated);
+    }
+
+    private systemActionViews(site: StageSite): ManagementActionView[] {
+        if (site.kind !== 'colony_target') return [];
+        if (colonyBySite(this.state, site.id)) return []; // already ours
+        if (this.state.rivalClaims.includes(site.id)) return [];
+        // Somebody already lives here. Their world is not yours to settle —
+        // deal with them instead, on their marker.
+        if (this.nativePowerAt(site.id)) return [];
+
+        const settle = this.def.actions.find((a) => a.special === 'colonise');
+        if (!settle) return [];
+
+        const cost = actionCost(settle, timesTaken(this.state, settle.id));
+        // Gate on the real action — it carries prerequisites (shipyards) as
+        // well as cost, and a button that looks affordable but does nothing is
+        // worse than one that is plainly disabled.
+        const unmet = settle.requires.filter((r) => !this.state.taken.includes(r));
+        const blocked = unmet.length > 0;
+
+        return [{
+            id: `settle:${site.id}`,
+            label: 'Found a colony here',
+            description: blocked
+                ? `Requires ${unmet.map((r) => this.def.actions.find((a) => a.id === r)?.label ?? r).join(', ')}.`
+                : settle.description,
+            costLabel: blocked
+                ? 'Locked'
+                : Object.entries(cost).map(([res, n]) => `${n} ${res}`).join(' · ') || 'free',
+            affordable: canTakeAction(this.state, this.def, settle.id) && isRevealed(this.state, site.x, site.y),
+            taken: false,
+        }];
+    }
+
+    private colonyActionViews(colony: Colony): ManagementActionView[] {
+        return colonyActions(colony).map((a) => ({
+            id: a.id,
+            label: a.label,
+            description: a.description,
+            costLabel: `${a.cost} ${a.costResource}`,
+            affordable: canTakeColonyAction(this.state, a.id, colony.siteId),
+            taken: false,
+        }));
     }
 
     /** Build + emit the selection payload for the bottom bar; move the ring. */
@@ -494,8 +675,21 @@ export class ManagementScene extends Phaser.Scene {
             const pos = this.map.at(site.x, site.y);
             rx = pos.x; ry = pos.y; ringR = 26;
             label = site.label;
-            sublabel = site.resource ? `Rich in ${site.resource}` : null;
-            actions = actionsForAnchor(this.def, `site:${sel.id}`).map((a) => this.actionViewOf(a));
+            sublabel = this.siteSublabel(site);
+            actions = [
+                ...actionsForAnchor(this.def, `site:${sel.id}`).map((a) => this.actionViewOf(a)),
+                ...this.systemActionViews(site),
+            ];
+        } else if (sel.kind === 'colony') {
+            const colony = colonyBySite(this.state, sel.id);
+            if (!colony) return this.deselect();
+            const site = this.def.map?.sites.find((s) => s.id === sel.id);
+            const pos = site ? this.map.at(site.x, site.y) : { x: rx, y: ry };
+            rx = pos.x; ry = pos.y; ringR = 26;
+            label = colony.name;
+            sublabel = `${colony.worldType} · ${Math.floor(colony.population)}/${colony.capacity} people`
+                + (colony.specialisation ? ` · ${colony.specialisation}` : '');
+            actions = this.colonyActionViews(colony);
         } else {
             const rival = rivalById(this.state, sel.id);
             if (!rival || !rival.discovered) return this.deselect();
@@ -584,6 +778,7 @@ export class ManagementScene extends Phaser.Scene {
     /** Step the strategic-map zoom (wheel or HUD buttons). */
     private applyZoom(delta: number): void {
         if (this.spaceInOrbit) return; // locked in orbit until you launch
+        if (this.flying) return; // flight owns the zoom while you have the helm
         const cam = this.cameras.main;
         const next = Phaser.Math.Clamp(cam.zoom + delta * 0.18, STRAT_ZOOM_MIN, STRAT_ZOOM_MAX);
         this.tweens.add({ targets: cam, zoom: next, duration: 180, ease: 'Sine.easeOut' });
@@ -707,13 +902,19 @@ export class ManagementScene extends Phaser.Scene {
 
         this.updateTradeRoutes();
 
-        // Sites claimed since the last frame get marked on the map; your own
+        // Systems claimed since the last frame get marked on the map; your own
         // colonies also get a lane home with a looping courier ship.
-        for (const claim of this.state.claimedSites) {
-            if (!this.markedSites.has(claim.siteId)) {
-                this.markedSites.add(claim.siteId);
-                this.map.markSite(claim.siteId, claim.by);
-                if (claim.by === 'you') this.addColonyLane(claim.siteId);
+        for (const colony of this.state.colonies) {
+            if (!this.markedSites.has(colony.siteId)) {
+                this.markedSites.add(colony.siteId);
+                this.map.markSite(colony.siteId, 'you');
+                this.addColonyLane(colony.siteId);
+            }
+        }
+        for (const siteId of this.state.rivalClaims) {
+            if (!this.markedSites.has(siteId)) {
+                this.markedSites.add(siteId);
+                this.map.markSite(siteId, 'rival');
             }
         }
 
@@ -784,17 +985,39 @@ export class ManagementScene extends Phaser.Scene {
         }
     }
 
-    protected doAction(actionId: string, rivalId?: string): void {
+    protected doAction(actionId: string, rivalId?: string, siteId?: string): void {
         if (this.ended) return;
         if (actionId.startsWith('fac_')) {
             const target = rivalId ?? this.state.rivals.find((r) => r.discovered)?.id;
             if (!target || !canTakeFactionAction(this.state, this.def, actionId, target)) return;
             this.state = applyFactionAction(this.state, this.def, actionId, target, this.rng.next());
+        } else if (actionId.startsWith('settle:')) {
+            // Settling a named system: pay the stage's colonise action, but
+            // plant the colony exactly where the player chose.
+            const target = actionId.slice('settle:'.length);
+            const settle = this.def.actions.find((a) => a.special === 'colonise');
+            if (!settle || !canTakeAction(this.state, this.def, settle.id)) return;
+            this.state = takeAction(this.state, this.def, settle.id);
+            this.resolveColonise(target);
+            // The system is ours now — re-point the selection at the colony.
+            this.selected = { kind: 'colony', id: target };
+        } else if (actionId.startsWith('col_')) {
+            const target = siteId ?? (this.selected?.kind === 'colony' ? this.selected.id : undefined);
+            if (!target || !canTakeColonyAction(this.state, actionId, target)) return;
+            this.state = applyColonyAction(this.state, actionId, target);
         } else {
             const action = this.def.actions.find((a) => a.id === actionId);
             if (!action || !canTakeAction(this.state, this.def, actionId)) return;
+            // Don't charge for a helm you already hold.
+            if (action.special === 'flight' && this.flying) return;
             this.state = takeAction(this.state, this.def, actionId);
-            if (action.special === 'scout') {
+            if (action.special === 'finish') {
+                this.exitFlight();
+                this.completeStage();
+                return;
+            } else if (action.special === 'flight') {
+                this.enterFlight();
+            } else if (action.special === 'scout') {
                 if (this.spaceInOrbit) this.leaveOrbit(); // first probe breaks orbit
                 this.resolveScout();
             } else if (action.special === 'colonise') {
@@ -821,7 +1044,7 @@ export class ManagementScene extends Phaser.Scene {
         if (revealed) {
             const pos = this.map.at(revealed.x, revealed.y);
             // Pan to the discovery and ping it.
-            this.cameras.main.pan(pos.x, pos.y, 700, 'Sine.easeInOut');
+            this.focusMapPoint(pos.x, pos.y, 700);
             const ping = this.add.circle(pos.x, pos.y, 12, COLORS.brandHi, 0).setStrokeStyle(2, COLORS.brandHi, 0.9).setDepth(21);
             this.tweens.add({ targets: ping, scale: 3, alpha: 0, duration: 900, onComplete: () => ping.destroy() });
             if (this.def.map?.style === 'starmap') {
@@ -830,8 +1053,8 @@ export class ManagementScene extends Phaser.Scene {
         }
     }
 
-    private resolveColonise(): void {
-        const { state, site } = applyColonise(this.state, this.def);
+    private resolveColonise(siteId?: string): void {
+        const { state, site } = applyColonise(this.state, this.def, siteId, this.elapsedSec);
         this.state = state;
         if (site) {
             const pos = this.map.at(site.x, site.y);
@@ -841,11 +1064,16 @@ export class ManagementScene extends Phaser.Scene {
 
     update(_time: number, delta: number): void {
         // A pending event freezes the sim until the player decides.
-        if (this.paused || this.ended || this.pendingEvent || this.theatreBusy) return;
+        if (this.pauseSources.size > 0 || this.ended || this.pendingEvent || this.theatreBusy) return;
         const dt = (delta / 1000) * this.speedMultiplier;
         this.elapsedSec += dt;
         this.state = tickManagement(this.state, dt, this.def);
         this.state = tickRivals(this.state, dt);
+        this.state = tickColonies(this.state, dt);
+
+        // Piloting runs on real frame time, not sim-speed: the ship should not
+        // fly four times faster because the stage clock is at 4×.
+        if (this.flying) this.updateFlight(delta / 1000);
 
         // New powers rise partway through the stage — announce them loudly.
         const emergence = emergeRivals(this.state, this.elapsedSec);
@@ -853,7 +1081,7 @@ export class ManagementScene extends Phaser.Scene {
             this.state = emergence.state;
             for (const rival of emergence.emerged) {
                 const pos = this.map.at(rival.x, rival.y);
-                this.cameras.main.pan(pos.x, pos.y, 800, 'Sine.easeInOut');
+                this.focusMapPoint(pos.x, pos.y, 800);
                 const ping = this.add.circle(pos.x, pos.y, 16, COLORS.danger, 0).setStrokeStyle(3, COLORS.danger, 0.9).setDepth(21);
                 this.tweens.add({ targets: ping, scale: 3.4, alpha: 0, duration: 1100, repeat: 1, onComplete: () => ping.destroy() });
             }
@@ -925,7 +1153,17 @@ export class ManagementScene extends Phaser.Scene {
             this.emitHud();
         }
 
-        if (!this.freePlay && isManagementComplete(this.state, this.def)) this.completeStage();
+        // A stage that ends on demand waits for the player to say so.
+        if (!this.freePlay && !this.def.mechanics?.endOnDemand && isManagementComplete(this.state, this.def)) {
+            this.completeStage();
+        }
+    }
+
+    private setPauseSource(source: PauseSource, paused: boolean): void {
+        if (paused) this.pauseSources.add(source);
+        else this.pauseSources.delete(source);
+        this.bus.emit('game:pause-state', { paused: this.pauseSources.size > 0, sources: [...this.pauseSources] });
+        if (source === 'manual' && paused) this.emitSnapshot();
     }
 
     /** Raiders visibly march before the numbers land. */
@@ -990,6 +1228,326 @@ export class ManagementScene extends Phaser.Scene {
         return event;
     }
 
+    // ---- Flight mode --------------------------------------------------------
+
+    /** Take the helm: hand the camera and the controls to a ship. */
+    private enterFlight(): void {
+        if (this.flying || this.def.map?.style !== 'starmap') return;
+        this.flying = true;
+        this.visitedThisFlight.clear();
+        this.deselect();
+        this.panEnabled = false; // dragging steers nothing; it would fight the follow
+        if (this.spaceInOrbit) this.leaveOrbit();
+
+        const start = this.ship ?? this.add.image(this.map.home.x, this.map.home.y, unitTexture(this, 'ship'));
+        this.ship = start.setDepth(9).setVisible(true);
+        this.ship.setPosition(this.map.home.x, this.map.home.y);
+        this.shipVel = { x: 0, y: 0 };
+
+        const kb = this.input.keyboard;
+        if (kb) {
+            this.flightKeys ??= {
+                up: [kb.addKey('W'), kb.addKey(Phaser.Input.Keyboard.KeyCodes.UP)],
+                down: [kb.addKey('S'), kb.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN)],
+                left: [kb.addKey('A'), kb.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT)],
+                right: [kb.addKey('D'), kb.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT)],
+            };
+            this.escKey ??= kb.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+        }
+
+        this.buildFlightVisuals();
+
+        const cam = this.cameras.main;
+        cam.startFollow(this.ship, true, 0.08, 0.08);
+        this.tweens.add({ targets: cam, zoom: FLIGHT_ZOOM, duration: 700, ease: 'Sine.easeInOut' });
+
+        this.bus.emit('sfx', { name: 'evolve' });
+        this.bus.emit('notice:show', {
+            title: 'You have the helm',
+            description: 'Steer with WASD or the arrow keys. Fly to a system to survey it. '
+                + 'Every second under power burns alloy — press Esc to return to the chart.',
+            icon: '🚀',
+        });
+    }
+
+    /** One-time dust field + engine plume, reused across flights. */
+    private buildFlightVisuals(): void {
+        const ship = this.ship!;
+        if (this.flightDust.length === 0) {
+            for (let i = 0; i < DUST_COUNT; i++) {
+                const dot = this.add
+                    .circle(0, 0, this.rng.next() < 0.25 ? 2 : 1, 0xbfe8f5, 0.35 + this.rng.next() * 0.4)
+                    .setDepth(8);
+                // Scatter around the ship to begin with; updateFlightVisuals
+                // recycles them from here on.
+                dot.x = ship.x + (this.rng.next() - 0.5) * DUST_FIELD;
+                dot.y = ship.y + (this.rng.next() - 0.5) * DUST_FIELD;
+                this.flightDust.push(dot);
+            }
+        }
+        this.thrustPlume ??= this.add.graphics().setDepth(8);
+        for (const d of this.flightDust) d.setVisible(true);
+        this.thrustPlume.setVisible(true);
+    }
+
+    /**
+     * Stream dust past the hull and draw the engine plume. Dust that falls
+     * behind is wrapped to the far side, so a small fixed pool covers an
+     * unbounded flight.
+     */
+    private updateFlightVisuals(speed: number, thrusting: boolean): void {
+        const ship = this.ship!;
+        const half = DUST_FIELD / 2;
+        for (const dot of this.flightDust) {
+            let dx = dot.x - ship.x;
+            let dy = dot.y - ship.y;
+            if (dx > half) dx -= DUST_FIELD;
+            else if (dx < -half) dx += DUST_FIELD;
+            if (dy > half) dy -= DUST_FIELD;
+            else if (dy < -half) dy += DUST_FIELD;
+            dot.setPosition(ship.x + dx, ship.y + dy);
+            // Faster travel makes the dust brighter, like motes caught in a light.
+            dot.setAlpha(0.25 + Math.min(1, speed / FLIGHT_SPEED) * 0.5);
+        }
+
+        const g = this.thrustPlume!;
+        g.clear();
+        if (!thrusting && speed < 40) return;
+
+        // A flickering cone off the stern, longer the harder you burn.
+        const power = thrusting ? 1 : Math.min(1, speed / FLIGHT_SPEED) * 0.45;
+        const len = (22 + Math.min(1, speed / FLIGHT_SPEED) * 26) * power * (0.85 + this.rng.next() * 0.3);
+        const back = this.shipHeading + Math.PI;
+        const bx = ship.x + Math.cos(back) * 12;
+        const by = ship.y + Math.sin(back) * 12;
+        const spread = 0.28;
+        for (const [scale, colour, alpha] of [[1, 0x4fd4c4, 0.35], [0.6, 0x8fe9d6, 0.6]] as const) {
+            g.fillStyle(colour, alpha * power);
+            g.fillTriangle(
+                bx + Math.cos(back + spread) * 7 * scale, by + Math.sin(back + spread) * 7 * scale,
+                bx + Math.cos(back - spread) * 7 * scale, by + Math.sin(back - spread) * 7 * scale,
+                bx + Math.cos(back) * len * scale, by + Math.sin(back) * len * scale,
+            );
+        }
+    }
+
+    /** Hand control back to the chart. */
+    private exitFlight(): void {
+        if (!this.flying) return;
+        this.flying = false;
+        this.panEnabled = true;
+        const cam = this.cameras.main;
+        cam.stopFollow();
+        this.tweens.add({ targets: cam, zoom: 0.95, duration: 600, ease: 'Sine.easeInOut' });
+        this.ship?.setVisible(false);
+        for (const dot of this.flightDust) dot.setVisible(false);
+        this.thrustPlume?.clear().setVisible(false);
+    }
+
+    /** Steer, burn fuel, and notice what you have arrived at. */
+    private updateFlight(dt: number): void {
+        const ship = this.ship;
+        const keys = this.flightKeys;
+        if (!ship || !keys) return;
+
+        if (this.escKey?.isDown) {
+            this.exitFlight();
+            return;
+        }
+
+        const down = (list: Phaser.Input.Keyboard.Key[]) => list.some((k) => k.isDown);
+        let ax = (down(keys.right) ? 1 : 0) - (down(keys.left) ? 1 : 0);
+        let ay = (down(keys.down) ? 1 : 0) - (down(keys.up) ? 1 : 0);
+        const thrusting = ax !== 0 || ay !== 0;
+        if (thrusting) {
+            const len = Math.hypot(ax, ay) || 1;
+            ax /= len;
+            ay /= len;
+        }
+
+        // Momentum, matching the Creature stage's handling rather than a third
+        // movement feel: velocity eases toward input and coasts when released.
+        const lerp = thrusting ? FLIGHT_ACCEL_LERP : FLIGHT_DRAG_LERP;
+        const targetX = ax * FLIGHT_SPEED;
+        const targetY = ay * FLIGHT_SPEED;
+        const t = Math.min(1, lerp * dt);
+        this.shipVel.x += (targetX - this.shipVel.x) * t;
+        this.shipVel.y += (targetY - this.shipVel.y) * t;
+
+        // Fuel: only thrust burns alloy, so drifting is free and running dry is
+        // a setback rather than a dead end.
+        if (thrusting) {
+            const alloy = this.state.resources.alloy;
+            if (alloy && alloy.value > 0) {
+                this.state = applyEventEffects(this.state, { alloy: -FLIGHT_BURN_PER_SEC * dt });
+            } else {
+                this.shipVel.x *= 0.2;
+                this.shipVel.y *= 0.2;
+            }
+        }
+
+        ship.x = Phaser.Math.Clamp(ship.x + this.shipVel.x * dt, 0, this.map.width);
+        ship.y = Phaser.Math.Clamp(ship.y + this.shipVel.y * dt, 0, this.map.height);
+
+        const speed = Math.hypot(this.shipVel.x, this.shipVel.y);
+        if (speed > 8) {
+            // Ease the heading rather than snapping it, so turns read as banking.
+            const target = Math.atan2(this.shipVel.y, this.shipVel.x);
+            this.shipHeading = Phaser.Math.Angle.RotateTo(this.shipHeading, target, TURN_RATE * dt);
+            ship.setRotation(this.shipHeading);
+        }
+
+        // Pull the view back a little at speed — the world opens up as you run.
+        const cam = this.cameras.main;
+        const wanted = FLIGHT_ZOOM - (speed / FLIGHT_SPEED) * FLIGHT_ZOOM_SPREAD;
+        cam.zoom += (wanted - cam.zoom) * Math.min(1, 1.5 * dt);
+
+        this.updateFlightVisuals(speed, thrusting);
+        this.checkArrival(ship.x, ship.y);
+    }
+
+    /**
+     * What is waiting at a world, and what you can do about it. Authored here
+     * rather than in stages.json because an encounter is a function of the
+     * world's feature, not of the individual system.
+     */
+    private encounterFor(site: StageSite): StageEvent | null {
+        const feature = site.world?.feature;
+        if (!feature) return null;
+
+        const at = site.label;
+        const encounters: Record<string, StageEvent> = {
+            natives: {
+                id: `encounter:${site.id}`,
+                title: `Life on ${at}`,
+                description: `The signal resolves into speech. Something already lives here, and it has noticed you.`,
+                choices: [
+                    { label: 'Answer them', effects: { research: 14 }, note: `You spoke first at ${at}, and were answered.` },
+                    { label: 'Watch, and say nothing', effects: { legacy: 6 }, note: `You watched ${at} a while, and left them unaware.` },
+                ],
+                visual: { kind: 'signal' },
+            },
+            anomaly: {
+                id: `encounter:${site.id}`,
+                title: `An anomaly at ${at}`,
+                description: `The instruments disagree with each other. Whatever is out here does not behave like matter should.`,
+                choices: [
+                    { label: 'Take the ship closer', effects: { research: 22, alloy: -10 }, note: `${at} gave up something your physics cannot yet hold.` },
+                    { label: 'Log it and keep your distance', effects: { legacy: 5 }, note: `You marked ${at} on the chart and let it be.` },
+                ],
+                visual: { kind: 'anomaly' },
+            },
+            hazard: {
+                id: `encounter:${site.id}`,
+                title: `${at} is hostile`,
+                description: `Radiation, debris and a star that flares without warning. Nothing here is free.`,
+                choices: [
+                    { label: 'Push through', effects: { alloy: -16, research: 12 }, note: `You crossed ${at} and paid for it in hull.` },
+                    { label: 'Skirt the worst of it', effects: { alloy: -5 }, note: `You went the long way around ${at}.` },
+                ],
+                visual: { kind: 'flare' },
+            },
+            derelict: {
+                id: `encounter:${site.id}`,
+                title: `Something was here before you`,
+                description: `A hull drifts at ${at}, dark and long dead. It is not of any make you know.`,
+                choices: [
+                    { label: 'Board and strip it', effects: { alloy: 20, research: -4 }, note: `You cut ${at}'s derelict apart for what it was worth.` },
+                    { label: 'Read its logs first', effects: { research: 16 }, note: `The derelict at ${at} told you how it died.` },
+                ],
+                visual: { kind: 'discovery' },
+            },
+        };
+        return encounters[feature] ?? null;
+    }
+
+    /** Flying within reach of a system charts it and brings it up. */
+    private checkArrival(x: number, y: number): void {
+        const site = this.map.siteNear(x, y, ARRIVAL_RADIUS);
+        if (!site || this.visitedThisFlight.has(site.id)) return;
+        this.visitedThisFlight.add(site.id);
+
+        // Arriving in person charts the system, whether or not a probe found it.
+        if (!isRevealed(this.state, site.x, site.y)) {
+            this.state = revealAt(this.state, site.x, site.y, this.def.fog?.revealRadius ?? 0.14);
+            this.map.updateFog(this.state);
+            this.state = applyEventEffects(this.state, {}, `You made orbit at ${site.label}.`);
+        }
+
+        // Making orbit should feel like an arrival, not a log line.
+        const pos = this.map.at(site.x, site.y);
+        for (const delay of [0, 160]) {
+            const ring = this.add
+                .circle(pos.x, pos.y, 22, 0x000000, 0)
+                .setStrokeStyle(2, COLORS.brandHi, 0.9)
+                .setDepth(10);
+            this.tweens.add({
+                targets: ring, scale: 3.2, alpha: 0, delay, duration: 900,
+                ease: 'Sine.easeOut', onComplete: () => ring.destroy(),
+            });
+        }
+        this.cameras.main.flash(220, 60, 120, 130);
+
+        this.bus.emit('sfx', { name: 'event' });
+        this.selectSite(site.id); // its actions — survey, settle, manage — open here
+        this.emitManagement();
+
+        // First time here: whatever the world is holding happens now.
+        const encounter = this.encounterFor(site);
+        if (encounter && !this.state.encountered.includes(site.id)) {
+            this.state = { ...this.state, encountered: [...this.state.encountered, site.id] };
+            this.raiseEncounter(encounter, site);
+        }
+    }
+
+    /**
+     * Open an encounter as a decision. It rides the normal event machinery —
+     * the sim freezes, the modal shows the choice, and the outcome is revealed
+     * afterwards — but remembers the system so first contact can seat a power.
+     */
+    private raiseEncounter(encounter: StageEvent, site: StageSite): void {
+        this.pendingEvent = encounter;
+        this.encounterSite = site;
+        this.bus.emit('sfx', { name: 'event' });
+        this.bus.emit('event:show', {
+            title: encounter.title,
+            description: encounter.description,
+            choices: encounter.choices.map((c) => c.label),
+            icon: eventIcon(encounter.visual?.kind),
+        });
+    }
+
+    /**
+     * Answering a native world seats them as a real power on the map, with
+     * their own strength and their own opinion of you. Generated in play rather
+     * than authored, which is what makes the galaxy feel inhabited.
+     */
+    private seatNativePower(site: StageSite): void {
+        const id = `native:${site.id}`;
+        if (this.state.rivals.some((r) => r.id === id)) return;
+
+        const rng = new Rng(`${this.seed}:contact:${site.id}`);
+        const archetypes = ['trader', 'builder', 'enigmatic', 'aggressive'] as const;
+        const stem = site.label.split(' ')[0];
+        this.state = addRival(this.state, {
+            id,
+            name: `the ${stem} ${rng.pick(['Concord', 'Assembly', 'Chorus', 'Kindred', 'Watch'])}`,
+            archetype: rng.pick([...archetypes]),
+            x: site.x,
+            y: site.y,
+            present: true,
+            emergesAt: 0,
+            discovered: true,
+            strength: 18 + Math.floor(rng.next() * 20),
+            // They start neutral-warm: you did, after all, speak first.
+            relationship: 15,
+            defense: 0,
+            progress: 0,
+        });
+        this.buildRivalMarker(this.state.rivals.find((r) => r.id === id)!);
+        this.emitManagement();
+    }
+
     private siteLabel(siteId: string): string {
         return this.def.map?.sites.find((s) => s.id === siteId)?.label ?? 'a territory';
     }
@@ -1014,13 +1572,6 @@ export class ManagementScene extends Phaser.Scene {
             .then(() => {
                 this.theatreBusy = false;
 
-                // A minor event is texture, not a decision: it plays on the map
-                // and settles itself into the log without stopping the world.
-                if (event.severity === 'minor') {
-                    this.resolveEvent(0);
-                    return;
-                }
-
                 this.bus.emit('event:show', {
                     title: event.title,
                     description: event.description,
@@ -1035,14 +1586,16 @@ export class ManagementScene extends Phaser.Scene {
         if (!event) return;
         const choice = event.choices[index] ?? event.choices[0];
         this.state = applyEventEffects(this.state, choice.effects, choice.note);
+
+        // Answering a native world (the first choice) seats them as a power.
+        const site = this.encounterSite;
+        this.encounterSite = null;
+        if (site && site.world?.feature === 'natives' && index === 0) {
+            this.seatNativePower(site);
+        }
+
         this.emitManagement();
         this.emitSnapshot();
-
-        // Minor events never opened a modal, so there is nothing to read.
-        if (event.severity === 'minor') {
-            this.pendingEvent = null;
-            return;
-        }
 
         // Stay frozen while the modal reveals what the decision actually did;
         // 'intent:event-dismiss' releases it.
@@ -1066,7 +1619,13 @@ export class ManagementScene extends Phaser.Scene {
     /** Hook: extra status line under the objective (era banner, eco stall). */
     protected statusLine(): string | null {
         if (ecologyStalled(this.state, this.def)) {
-            return 'The biosphere is exhausted — unity stalls until ecology recovers.';
+            return 'Unity is paused, but Industry continues. Fund restoration to recover.';
+        }
+        const ecology = this.state.resources.ecology;
+        if (ecology && ecology.perTick < 0) return `Ecology declining: ${ecology.perTick.toFixed(1)}/s`;
+        // The finale is finished when the player says so, so say so.
+        if (this.def.mechanics?.endOnDemand && isManagementComplete(this.state, this.def)) {
+            return 'Your legacy is secured. Keep exploring, or send the last ship from your homeworld when you are ready.';
         }
         const era = currentEra(this.state, this.def);
         return era ? `Era: ${era.label}` : null;
@@ -1089,7 +1648,11 @@ export class ManagementScene extends Phaser.Scene {
             // knowing to click the right thing on the map. Council decisions
             // act directly; anchored ones carry a `locate` and travel there.
             actions: [
-                ...councilActions(this.def).map((a) => this.actionViewOf(a)),
+                // Colonising is no longer an abstract button that picks a
+                // system for you — you settle the world you are looking at.
+                ...councilActions(this.def)
+                    .filter((a) => a.special !== 'colonise')
+                    .map((a) => this.actionViewOf(a)),
                 ...this.def.actions
                     .filter((a) => actionAnchor(a) !== 'council')
                     .map((a) => this.actionViewOf(a, true)),
@@ -1123,6 +1686,8 @@ export class ManagementScene extends Phaser.Scene {
             completed: isManagementComplete(this.state, this.def),
             traits: [], // strategic stages add no cell/creature traits; inherited stay in state.traits.inherited
             resources,
+            // The charted map, the worlds held, and who has been met.
+            stageState: saveManagement(this.state),
         });
     }
 

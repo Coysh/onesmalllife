@@ -53,6 +53,34 @@ const LAND_ERA: LandPalette = {
 };
 
 /**
+ * Fog is drawn at a fraction of world resolution and stretched. It is only soft
+ * gradients, so nothing is lost, and it keeps the texture affordable on maps
+ * far larger than the viewport.
+ */
+const FOG_RESOLUTION = 0.25;
+
+/** Stars are capped: past a point more of them is cost, not atmosphere. */
+const MAX_STARS = 1400;
+
+/** Starmap world colours — readable at a glance, distinct from the brand teal. */
+const WORLD_TINT: Record<string, number> = {
+    temperate: 0x5f9e5a,
+    ocean: 0x3f7fb0,
+    ash: 0x8a5a44,
+    frozen: 0xa9cfe0,
+    gas: 0xc9a05f,
+    ruin: 0x8f7fa8,
+};
+
+/** Ring colour flagging why a system is worth the journey. */
+const FEATURE_TINT: Record<string, number> = {
+    natives: 0x8fe9d6,
+    anomaly: 0xd9a0f0,
+    hazard: 0xf2795f,
+    derelict: 0xf5e9c9,
+};
+
+/**
  * Renders a strategic stage's world map: terrain styled per map.style
  * (tribal plains / era farmland / living planet / starmap), resource sites,
  * the home settlement glow, rival camps, and a fog-of-war overlay whose
@@ -60,15 +88,24 @@ const LAND_ERA: LandPalette = {
  * the map; ManagementScene owns input and the sim.
  */
 export class StrategicMap {
-    readonly width = WORLD.stratWidth;
-    readonly height = WORLD.stratHeight;
+    /**
+     * Map size is per-stage: sites are authored in normalised 0..1 coordinates,
+     * so a stage can be given a far bigger world purely for a sense of scale
+     * without any content moving. Space uses this to feel like a galaxy rather
+     * than a neighbourhood.
+     */
+    readonly width: number;
+    readonly height: number;
 
     private fog?: Phaser.GameObjects.RenderTexture;
     private fogDrawn = 0; // how many reveal circles are already erased
     private siteLabels = new Map<string, Phaser.GameObjects.Container>();
     private ecologyOverlay?: Phaser.GameObjects.Graphics;
 
-    constructor(private scene: Phaser.Scene, private def: StageDef, private seed: string) {}
+    constructor(private scene: Phaser.Scene, private def: StageDef, private seed: string) {
+        this.width = def.map?.size?.width ?? WORLD.stratWidth;
+        this.height = def.map?.size?.height ?? WORLD.stratHeight;
+    }
 
     /** Density multiplier so a larger world stays as detailed, not emptier. */
     private get areaScale(): number {
@@ -570,7 +607,7 @@ export class StrategicMap {
     }
 
     private drawStarfield(g: Phaser.GameObjects.Graphics, rng: Rng): void {
-        for (let i = 0; i < Math.round(320 * this.areaScale); i++) {
+        for (let i = 0; i < Math.min(MAX_STARS, Math.round(320 * this.areaScale)); i++) {
             const x = rng.next() * this.width;
             const y = rng.next() * this.height;
             const tint = rng.chance(0.12) ? 0xbfe8f5 : rng.chance(0.08) ? 0xf5b955 : 0xffffff;
@@ -587,8 +624,22 @@ export class StrategicMap {
         const style = this.def.map?.style;
         const parts: Phaser.GameObjects.GameObject[] = [];
         if (style === 'starmap') {
-            parts.push(this.scene.add.circle(0, 0, 10, 0xbfe8f5, 0.25));
-            parts.push(this.scene.add.circle(0, 0, 5, 0xf5e9c9, 1));
+            // The star, then the world itself tinted by type — the chart should
+            // say what kind of place this is before you travel to it.
+            const world = site.world;
+            parts.push(this.scene.add.circle(0, 0, 10, 0xbfe8f5, 0.22));
+            parts.push(this.scene.add.circle(0, 0, 4, 0xf5e9c9, 1));
+            if (world) {
+                parts.push(this.scene.add.circle(9, 6, 5, WORLD_TINT[world.type] ?? 0x8fa8a4, 1));
+                // A feature is the reason to make the journey: flag it.
+                if (world.feature) {
+                    parts.push(
+                        this.scene.add
+                            .circle(9, 6, 8, 0x000000, 0)
+                            .setStrokeStyle(1.5, FEATURE_TINT[world.feature] ?? 0xffffff, 0.9),
+                    );
+                }
+            }
         } else if (site.kind === 'village') {
             parts.push(this.scene.add.rectangle(0, 0, 14, 12, 0x8a6f4a));
             parts.push(this.scene.add.triangle(0, -9, -9, 0, 9, 0, 0, -8, 0xc9b8a0));
@@ -601,6 +652,26 @@ export class StrategicMap {
             .setOrigin(0.5);
         const marker = this.scene.add.container(pos.x, pos.y, [...parts, label]).setDepth(4);
         this.siteLabels.set(site.id, marker);
+    }
+
+    /** World pixels back to the normalised 0..1 space sites are authored in. */
+    normalised(worldX: number, worldY: number): { x: number; y: number } {
+        return { x: worldX / this.width, y: worldY / this.height };
+    }
+
+    /** The site nearest a world point, if it lies within `radius` world px. */
+    siteNear(worldX: number, worldY: number, radius: number): StageSite | null {
+        let best: StageSite | null = null;
+        let bestDist = radius;
+        for (const site of this.def.map?.sites ?? []) {
+            const pos = this.at(site.x, site.y);
+            const dist = Math.hypot(pos.x - worldX, pos.y - worldY);
+            if (dist <= bestDist) {
+                best = site;
+                bestDist = dist;
+            }
+        }
+        return best;
     }
 
     /** Site markers + their base world-x, for the horizontally-wrapping planet camera. */
@@ -628,7 +699,15 @@ export class StrategicMap {
     // ---- Fog of war ---------------------------------------------------------
 
     private buildFog(state: ManagementState): void {
-        this.fog = this.scene.add.renderTexture(0, 0, this.width, this.height).setOrigin(0, 0).setDepth(20);
+        // The fog texture is rendered well below world resolution and stretched
+        // over the map. It is nothing but soft gradients, so the loss is
+        // invisible — and at full size a large world would allocate hundreds of
+        // megabytes of GPU memory and fail to boot.
+        this.fog = this.scene.add
+            .renderTexture(0, 0, Math.round(this.width * FOG_RESOLUTION), Math.round(this.height * FOG_RESOLUTION))
+            .setOrigin(0, 0)
+            .setDepth(20);
+        this.fog.setDisplaySize(this.width, this.height);
         this.fog.fill(0x020a0c, 0.86);
         this.fogDrawn = 0;
         this.updateFog(state);
@@ -640,9 +719,10 @@ export class StrategicMap {
         const dotKey = ensureSoftDot(this.scene, 'osl-fog-dot', 128);
         while (this.fogDrawn < state.discovered.length) {
             const c = state.discovered[this.fogDrawn++];
-            const px = c.x * this.width;
-            const py = c.y * this.height;
-            const radius = c.r * this.width;
+            // Erase in the texture's own (reduced) space, not world space.
+            const px = c.x * this.width * FOG_RESOLUTION;
+            const py = c.y * this.height * FOG_RESOLUTION;
+            const radius = c.r * this.width * FOG_RESOLUTION;
             // Layered soft erases: a hard clear core + feathered edge.
             const img = new Phaser.GameObjects.Image(this.scene, 0, 0, dotKey);
             for (const [scale, alpha] of [[2.4, 1], [2.0, 1], [1.6, 1]] as const) {

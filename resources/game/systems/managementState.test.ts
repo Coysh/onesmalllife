@@ -3,11 +3,16 @@ import {
     initManagement,
     tickManagement,
     canTakeAction,
+    actionAvailability,
     takeAction,
     applyEventEffects,
     applyScout,
     applyColonise,
     colonisableSites,
+    colonyRates,
+    addRival,
+    applyColonyAction,
+    saveManagement,
     isRevealed,
     objectiveProgress,
     isManagementComplete,
@@ -38,6 +43,15 @@ const firstRival = (s: ManagementState) => s.rivals.find((r) => r.discovered)!.i
 const byKind = (def: StageDef, kind: FactionActionKind) => factionActions(def).find((a) => a.kind === kind)!.id;
 
 describe('managementState', () => {
+    it('explains a missing prerequisite before resource shortfalls', () => {
+        const def = stages.civilisation;
+        const state = initManagement(def);
+        state.resources.food.value = 999;
+        state.resources.gold.value = 999;
+        const availability = actionAvailability(state, def, 'aqueduct');
+        expect(availability).toMatchObject({ allowed: false, reason: 'missing-requirement' });
+        expect(availability.message).toContain('Raise granaries');
+    });
     it('initialises resources from the stage definition', () => {
         const s = initManagement(stages.tribe);
         expect(s.resources.food.value).toBe(25);
@@ -427,21 +441,137 @@ describe('mechanics rules', () => {
         }
         expect(colonisableSites(s, def).length).toBeGreaterThan(0);
 
-        const before = s.resources.legacy.perTick;
         const { state, site } = applyColonise(s, def);
         expect(site).not.toBeNull();
-        expect(state.resources.legacy.perTick).toBeGreaterThan(before);
-        expect(state.claimedSites.some((c) => c.by === 'you')).toBe(true);
+        expect(state.colonies.length).toBe(1);
+        // Output is derived from the colony, not baked into the base rate — so
+        // the stage's own perTick is untouched and the colony contributes live.
+        expect(state.resources.legacy.perTick).toBe(s.resources.legacy.perTick);
+        expect(Object.values(colonyRates(state)).some((r) => r > 0)).toBe(true);
     });
 
-    it("space: the elder rival's milestone claims a system", () => {
+    it('space: you colonise the system you name, not the nearest one', () => {
         const def = stages.space;
-        const s = initManagement(def);
+        let s = initManagement(def);
+        // Reveal the whole chart so every system is a candidate.
+        s = { ...s, discovered: [{ x: 0.5, y: 0.5, r: 5 }] };
+
+        const open = colonisableSites(s, def);
+        const chosen = open[open.length - 1]; // deliberately not the nearest
+        const { state, site } = applyColonise(s, def, chosen.id);
+
+        expect(site?.id).toBe(chosen.id);
+        expect(state.colonies[0].siteId).toBe(chosen.id);
+    });
+
+    it('space: a lost colony takes its production with it', () => {
+        const def = stages.space;
+        let s = initManagement(def);
+        s = { ...s, discovered: [{ x: 0.5, y: 0.5, r: 5 }] };
+        s = applyColonise(s, def).state;
+
+        const withColony = colonyRates(s);
+        expect(Object.values(withColony).some((r) => r > 0)).toBe(true);
+
+        const without = colonyRates({ ...s, colonies: [] });
+        expect(Object.values(without).every((r) => r === 0)).toBe(true);
+    });
+
+    it('space: a power met in play joins the map and can be dealt with', () => {
+        const def = stages.space;
+        let s = initManagement(def);
+        const before = s.rivals.length;
+
+        s = addRival(s, {
+            id: 'native:aurelia', name: 'the Aurelia Concord', archetype: 'trader',
+            x: 0.78, y: 0.55, present: true, emergesAt: 0, discovered: true,
+            strength: 20, relationship: 15, defense: 0, progress: 0,
+        });
+
+        expect(s.rivals.length).toBe(before + 1);
+        const met = s.rivals.find((r) => r.id === 'native:aurelia')!;
+        expect(met.discovered).toBe(true);
+        expect(s.log[0]).toContain('First contact');
+
+        // They are a real power: the stage's own diplomacy applies to them.
+        s.resources.research.value = 100;
+        s.resources.alloy.value = 100;
+        expect(canTakeFactionAction(s, def, byKind(def, 'emissary'), met.id)).toBe(true);
+
+        // And contact happens once — meeting them again is a no-op.
+        const again = addRival(s, { ...met });
+        expect(again.rivals.length).toBe(s.rivals.length);
+    });
+
+    it('space: a galaxy survives a save and reload', () => {
+        const def = stages.space;
+        let s = initManagement(def);
+        s = { ...s, discovered: [{ x: 0.5, y: 0.5, r: 5 }] };
+        s = takeAction(s, def, 'shipyards');
+        s = applyColonise(s, def, 'nadir', 120).state;
+        // Top up alloy without disturbing the rate shipyards granted.
+        s = { ...s, resources: { ...s.resources, alloy: { ...s.resources.alloy, value: 500 } } };
+        s = applyColonyAction(s, 'col_spec_research', 'nadir');
+        s = addRival(s, {
+            id: 'native:aurelia', name: 'the Aurelia Chorus', archetype: 'trader',
+            x: 0.78, y: 0.55, present: true, emergesAt: 0, discovered: true,
+            strength: 20, relationship: 15, defense: 0, progress: 0,
+        });
+        s = { ...s, encountered: ['nadir', 'aurelia'], rivalClaims: ['cinder'] };
+
+        // Round-trip through the saved slice, as the server stores it.
+        const restored = initManagement(def, undefined, 'A rival power', JSON.parse(JSON.stringify(saveManagement(s))));
+
+        expect(restored.colonies).toHaveLength(1);
+        expect(restored.colonies[0].name).toBe(s.colonies[0].name);
+        expect(restored.colonies[0].specialisation).toBe('research');
+        expect(restored.rivals.some((r) => r.id === 'native:aurelia')).toBe(true);
+        expect(restored.encountered).toEqual(['nadir', 'aurelia']);
+        expect(restored.rivalClaims).toEqual(['cinder']);
+        expect(restored.discovered).toHaveLength(1);
+
+        // Rates granted by past decisions are re-derived from `taken`, not
+        // stored — so a reloaded stage produces exactly what it did before.
+        expect(restored.resources.alloy.perTick).toBeCloseTo(s.resources.alloy.perTick);
+        expect(colonyRates(restored)).toEqual(colonyRates(s));
+    });
+
+    it('space: a corrupt or empty saved slice falls back to a fresh stage', () => {
+        const def = stages.space;
+        const restored = initManagement(def, undefined, 'A rival power', {
+            colonies: 'not-an-array' as never,
+            rivals: undefined,
+        });
+
+        expect(restored.colonies).toEqual([]);
+        expect(restored.rivals.length).toBeGreaterThan(0); // authored rivals return
+        expect(restored.discovered).toHaveLength(1); // home is revealed
+    });
+
+    it("space: the elder rival's milestone claims a system you have seen", () => {
+        const def = stages.space;
+        let s = initManagement(def);
+        s = { ...s, discovered: [{ x: 0.5, y: 0.5, r: 5 }] };
         s.rivals[0].discovered = true;
         s.rivals[0].progress = 999;
+
         const { state, surged } = rivalMilestones(s, def);
         expect(surged[0].claimedSiteId).not.toBeNull();
-        expect(state.claimedSites.some((c) => c.by === 'rival')).toBe(true);
+        expect(state.rivalClaims.length).toBe(1);
+    });
+
+    // Regression: the rival used to take the nearest unclaimed site of ANY
+    // kind, revealed or not — so a system the player had never seen could be
+    // lost silently, and the log would name a place they'd never heard of.
+    it('space: a rival cannot claim a system still under fog', () => {
+        const def = stages.space;
+        const s = initManagement(def); // only home is revealed
+        s.rivals[0].discovered = true;
+        s.rivals[0].progress = 999;
+
+        const { state, surged } = rivalMilestones(s, def);
+        expect(surged[0].claimedSiteId).toBeNull();
+        expect(state.rivalClaims).toEqual([]);
     });
 });
 

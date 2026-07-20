@@ -194,6 +194,19 @@
           "anchor": "home"
         },
         {
+          "id": "community_gathering",
+          "label": "Host a community gathering",
+          "description": "Food, stories and shared work deepen the tribe’s identity.",
+          "cost": { "food": 18, "materials": 6 },
+          "grants": { "culture": 3 },
+          "rate": { "culture": 0.08 },
+          "requires": ["songs"],
+          "once": false,
+          "maxRepeat": 5,
+          "costGrowth": 1.5,
+          "anchor": "home"
+        },
+        {
           "id": "weirs",
           "label": "Build fish weirs",
           "anchor": "site:river",
@@ -773,6 +786,21 @@
           "costGrowth": 1.6
         },
         {
+          "id": "civic_works",
+          "label": "Commission civic works",
+          "description": "Public works turn surplus into durable knowledge.",
+          "cost": { "food": 15, "gold": 12 },
+          "grants": {},
+          "rate": { "tech": 0.08 },
+          "requires": ["markets"],
+          "once": false,
+          "maxRepeat": 4,
+          "costGrowth": 1.5,
+          "placement": true,
+          "anchor": "home",
+          "availableFromEra": "bronze"
+        },
+        {
           "id": "aqueduct",
           "label": "Build aqueducts",
           "description": "Water for the growing districts — the city swells.",
@@ -793,6 +821,36 @@
           "anchor": "home",
           "maxRepeat": 3,
           "costGrowth": 1.5
+        },
+        {
+          "id": "foundries",
+          "label": "Expand the foundries",
+          "description": "Iron workshops accelerate discovery and trade.",
+          "cost": { "food": 18, "gold": 22 },
+          "grants": {},
+          "rate": { "tech": 0.14, "gold": 0.2 },
+          "requires": ["writing"],
+          "once": false,
+          "maxRepeat": 4,
+          "costGrowth": 1.55,
+          "placement": true,
+          "anchor": "home",
+          "availableFromEra": "iron"
+        },
+        {
+          "id": "institutions",
+          "label": "Found public institutions",
+          "description": "Classical institutions sustain learning across generations.",
+          "cost": { "food": 25, "gold": 35 },
+          "grants": {},
+          "rate": { "tech": 0.22 },
+          "requires": ["academy"],
+          "once": false,
+          "maxRepeat": 4,
+          "costGrowth": 1.6,
+          "placement": true,
+          "anchor": "home",
+          "availableFromEra": "classical"
         },
         {
           "id": "settle",
@@ -1246,6 +1304,18 @@
           ],
           "once": true,
           "anchor": "site:west_reach"
+        },
+        {
+          "id": "habitat_restoration",
+          "label": "Fund habitat restoration",
+          "description": "Restore damaged ecosystems and establish permanent recovery programmes.",
+          "cost": { "industry": 18 },
+          "grants": { "ecology": 10 },
+          "rate": { "ecology": 0.25 },
+          "requires": ["green"],
+          "once": false,
+          "maxRepeat": 8,
+          "costGrowth": 1.45
         },
         {
           "id": "councils",
@@ -1755,6 +1825,22 @@
           "special": "scout"
         },
         {
+          "id": "helm",
+          "label": "Take the helm",
+          "description": "Fly out yourself. Steer with WASD or the arrow keys; press Esc to return to the chart.",
+          "cost": {
+            "alloy": 5
+          },
+          "grants": {},
+          "rate": {},
+          "requires": [
+            "shipyards"
+          ],
+          "once": false,
+          "special": "flight",
+          "anchor": "home"
+        },
+        {
           "id": "shipyards",
           "label": "Orbital shipyards",
           "description": "Shipyards turn research into fleets and alloy.",
@@ -1823,11 +1909,23 @@
           ],
           "once": true,
           "anchor": "home"
+        },
+        {
+          "id": "depart",
+          "label": "Send the last ship",
+          "description": "Everything your lineage was, carried outward one final time. This ends the story.",
+          "cost": {},
+          "grants": {},
+          "rate": {},
+          "requires": [],
+          "once": true,
+          "special": "finish",
+          "anchor": "home"
         }
       ],
       "objective": {
         "resource": "legacy",
-        "target": 195,
+        "target": 700,
         "label": "Carry your lineage to the stars"
       },
       "map": {
@@ -1843,8 +1941,10 @@
             "x": 0.38,
             "y": 0.36,
             "kind": "colony_target",
-            "rateBonus": {
-              "legacy": 0.1
+            "world": {
+              "type": "temperate",
+              "feature": "natives",
+              "capacity": 10
             }
           },
           {
@@ -1853,8 +1953,10 @@
             "x": 0.52,
             "y": 0.68,
             "kind": "colony_target",
-            "rateBonus": {
-              "legacy": 0.1
+            "world": {
+              "type": "ocean",
+              "feature": "derelict",
+              "capacity": 9
             }
           },
           {
@@ -1863,8 +1965,10 @@
             "x": 0.64,
             "y": 0.28,
             "kind": "colony_target",
-            "rateBonus": {
-              "legacy": 0.12
+            "world": {
+              "type": "frozen",
+              "feature": "anomaly",
+              "capacity": 6
             }
           },
           {
@@ -1873,8 +1977,10 @@
             "x": 0.78,
             "y": 0.55,
             "kind": "colony_target",
-            "rateBonus": {
-              "legacy": 0.12
+            "world": {
+              "type": "temperate",
+              "feature": "natives",
+              "capacity": 10
             }
           },
           {
@@ -1883,8 +1989,10 @@
             "x": 0.88,
             "y": 0.8,
             "kind": "colony_target",
-            "rateBonus": {
-              "legacy": 0.15
+            "world": {
+              "type": "ruin",
+              "feature": "derelict",
+              "capacity": 7
             }
           },
           {
@@ -1893,8 +2001,10 @@
             "x": 0.9,
             "y": 0.24,
             "kind": "colony_target",
-            "rateBonus": {
-              "legacy": 0.15
+            "world": {
+              "type": "gas",
+              "feature": "anomaly",
+              "capacity": 5
             }
           },
           {
@@ -1903,8 +2013,10 @@
             "x": 0.3,
             "y": 0.18,
             "kind": "colony_target",
-            "rateBonus": {
-              "legacy": 0.3
+            "world": {
+              "type": "ash",
+              "feature": "hazard",
+              "capacity": 6
             }
           },
           {
@@ -1913,11 +2025,17 @@
             "x": 0.86,
             "y": 0.14,
             "kind": "colony_target",
-            "rateBonus": {
-              "legacy": 0.3
+            "world": {
+              "type": "gas",
+              "feature": "hazard",
+              "capacity": 5
             }
           }
-        ]
+        ],
+        "size": {
+          "width": 11500,
+          "height": 6500
+        }
       },
       "rivals": [
         {
@@ -1946,7 +2064,8 @@
       },
       "mechanics": {
         "colonies": true,
-        "tradeRoutes": true
+        "tradeRoutes": true,
+        "endOnDemand": true
       },
       "milestoneEffect": "claimSite",
       "raidLabel": "eclipsed your works",

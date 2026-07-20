@@ -42,6 +42,10 @@ export class SelectionBarController {
             bus.emit('intent:management-action', {
                 actionId: btn.dataset.actionId!,
                 rivalId: this.current.kind === 'rival' ? this.current.id : undefined,
+                // Colony and system actions act on the selected system.
+                siteId: this.current.kind === 'colony' || this.current.kind === 'site'
+                    ? this.current.id
+                    : undefined,
             });
         });
     }

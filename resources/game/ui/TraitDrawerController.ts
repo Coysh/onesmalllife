@@ -34,7 +34,10 @@ export class TraitDrawerController {
         this.badge = root.querySelector('[data-traits="badge"]');
         this.panel = root.querySelector('[data-overlay="traits"]');
 
-        root.querySelector('[data-action="open-traits"]')?.addEventListener('click', () => this.toggle(true));
+        root.querySelector('[data-action="open-traits"]')?.addEventListener('click', () => {
+            this.bus.emit('intent:open-creature-builder', undefined);
+            this.toggle(true);
+        });
         root.querySelector('[data-action="close-traits"]')?.addEventListener('click', () => this.toggle(false));
 
         bus.on('traits:update', (u) => this.render(u));

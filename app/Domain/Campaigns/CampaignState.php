@@ -11,7 +11,16 @@ namespace App\Domain\Campaigns;
 class CampaignState
 {
     /** Bump when the stored state shape changes; add a migrator in SaveMigrator. */
-    public const SCHEMA_VERSION = 1;
+    public const SCHEMA_VERSION = 2;
+
+    /**
+     * Versions the save endpoint will accept. Keeping the previous one means a
+     * browser still running an older JS bundle can keep autosaving through a
+     * deploy instead of 422-ing on every write; it is migrated on read.
+     *
+     * @var list<int>
+     */
+    public const ACCEPTED_SCHEMA_VERSIONS = [1, 2];
 
     /**
      * Build the initial state for a brand-new campaign.

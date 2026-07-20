@@ -115,6 +115,26 @@ class EndingResolver
             $scores['isolation'] += 3;
         }
 
+        // What you actually did out there, not just what you accumulated.
+        // Only judged if the lineage reached space at all — an unplayed stage
+        // must not read as a deliberate choice to keep to yourself.
+        if (isset($chronicle['space'])) {
+            $colonies = $of('space', 'colonies');
+            $contacts = $of('space', 'contacts');
+
+            if ($colonies >= 4) {
+                $scores['empire'] += 3; // worlds taken and held
+            } elseif ($colonies <= 1) {
+                $scores['isolation'] += 2; // you went out, and stayed few
+            }
+
+            if ($contacts >= 2) {
+                $scores['federation'] += 4; // you spoke to what you found
+            } elseif ($contacts === 0.0 && $of('space', 'worldsSeen') >= 3) {
+                $scores['isolation'] += 2; // you saw them, and said nothing
+            }
+        }
+
         // Ties resolve deterministically by family order (empire never wins a
         // tie over stewardship by accident): keysort as a stable tiebreak.
         $max = max($scores);

@@ -81,10 +81,6 @@
                     <x-ui.icon name="save" class="w-3.5 h-3.5" />
                     <span data-hud="save-status">Saved</span>
                 </span>
-                <button data-action="pause" aria-pressed="false"
-                        class="min-h-[44px] rounded-md border border-[color:var(--osl-border-glow)] bg-[color:var(--osl-surface-glass)] backdrop-blur-md px-4 font-semibold text-small hover:border-brand transition duration-fast">
-                    Pause
-                </button>
             </div>
 
             {{-- Right edge: threat cue (colour + "!" + directional word) --}}
@@ -112,6 +108,10 @@
                             {{ $label }}
                         </button>
                     @endforeach
+                    <button data-action="pause" aria-pressed="false"
+                            class="min-h-[36px] rounded-sm px-3 font-semibold text-small aria-pressed:bg-brand aria-pressed:text-[color:var(--osl-text-on-brand)] hover:bg-ink-surface2 transition duration-fast">
+                        <span aria-hidden="true">⏸</span> Pause
+                    </button>
                 </x-ui.panel>
                 <x-ui.panel glass class="flex items-center gap-1 p-1" data-mode="management">
                     <button data-zoom="-1" aria-label="Zoom out"
@@ -163,7 +163,7 @@
             </div>
 
             {{-- Management panel (strategic stages: Tribe → Space) --}}
-            <div data-mode="management" hidden
+            <div data-mode="management" data-management-sidebar hidden
                  class="pointer-events-auto absolute inset-y-0 right-0 w-full sm:w-[26rem] flex flex-col"
                  style="background: var(--osl-surface-glass); backdrop-filter: blur(8px); border-left: 1px solid var(--osl-border)">
                 <div class="px-5 py-4 border-b border-ink-border">
@@ -218,6 +218,7 @@
                     <p class="font-mono text-label uppercase tracking-[0.06em] text-content-4 mb-1">An event</p>
                     <h2 class="font-display font-bold text-h2 text-content mb-2" data-event="title"></h2>
                     <p class="text-small text-content-2 mb-5" data-event="description"></p>
+                    <p class="text-tooltip text-content-4 mb-3">Game paused while you decide.</p>
                     <div class="flex flex-col gap-3" data-event="choices"></div>
                 </x-ui.panel>
             </div>
@@ -281,6 +282,19 @@
                         <x-ui.button href="{{ route('campaigns.history', $campaign) }}" variant="secondary" size="lg">Species history</x-ui.button>
                         <x-ui.button href="{{ url('/dashboard') }}" variant="ghost" size="lg">Save &amp; quit</x-ui.button>
                     </div>
+                </x-ui.panel>
+            </div>
+
+            {{-- Stage 2's bounded creature build. Slots are populated by the DOM controller. --}}
+            <div data-overlay="creature-builder" hidden
+                 class="pointer-events-auto absolute inset-0 flex items-center justify-center p-4"
+                 style="background: radial-gradient(70% 70% at 50% 40%, rgba(79,212,196,.10), transparent), rgba(6,20,24,.86)">
+                <x-ui.panel class="w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6">
+                    <p class="font-mono text-label uppercase tracking-[.06em] text-content-4 text-center">Stage 2 · Evolve your creature</p>
+                    <h2 class="font-display font-bold text-h2 text-center mb-2">Choose how your creature survives</h2>
+                    <p class="text-small text-content-3 text-center mb-5">Pick one part for each slot. More parts can be found while exploring.</p>
+                    <div data-creature="slots" class="space-y-4"></div>
+                    <button type="button" data-action="confirm-creature-build" class="mt-5 w-full min-h-[48px] rounded-md bg-brand font-semibold text-[color:var(--osl-text-on-brand)]">Begin the stage</button>
                 </x-ui.panel>
             </div>
 

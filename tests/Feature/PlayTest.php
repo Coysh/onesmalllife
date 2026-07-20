@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Campaigns\CampaignState;
 use App\Models\Campaign;
 use App\Models\User;
 
@@ -22,7 +23,7 @@ it('creates a campaign with an initial autosave and redirects into play', functi
     expect($campaign->species_name)->not->toBeEmpty();
     expect($campaign->current_stage)->toBe('cell');
     expect($campaign->autosave())->not->toBeNull();
-    expect($campaign->autosave()->state['saveSchemaVersion'])->toBe(1);
+    expect($campaign->autosave()->state['saveSchemaVersion'])->toBe(CampaignState::SCHEMA_VERSION);
 });
 
 it('renders the Cell stage with the HUD, canvas mount and save url for the owner', function () {

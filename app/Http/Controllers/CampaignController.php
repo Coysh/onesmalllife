@@ -150,6 +150,21 @@ class CampaignController extends Controller
             $reasons[] = 'Your lineage left a mark that will outlast its worlds.';
         }
 
+        $colonies = (int) $of('space', 'colonies');
+        $contacts = (int) $of('space', 'contacts');
+        if ($colonies > 0) {
+            $reasons[] = $colonies === 1
+                ? 'One world beyond your own carries your people.'
+                : "Your people took root on {$colonies} worlds beyond their own.";
+        }
+        if ($contacts > 0) {
+            $reasons[] = $contacts === 1
+                ? 'You met another species out there, and chose to speak.'
+                : "You met {$contacts} other species out there, and chose to speak.";
+        } elseif ($of('space', 'worldsSeen') >= 3) {
+            $reasons[] = 'You crossed a galaxy and spoke to no one.';
+        }
+
         return $reasons;
     }
 

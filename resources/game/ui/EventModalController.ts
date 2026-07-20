@@ -47,6 +47,7 @@ export class EventModalController {
     }
 
     private show(event: EventView): void {
+        this.bus.emit('intent:pause-change', { source: 'event', paused: true });
         this.dismissOnly = false;
         if (this.iconEl) {
             this.iconEl.textContent = event.icon ?? '❖';
@@ -111,6 +112,7 @@ export class EventModalController {
         if (this.dismissOnly) {
             this.dismissOnly = false;
             if (this.overlay) this.overlay.hidden = true;
+            this.bus.emit('intent:pause-change', { source: 'event', paused: false });
             return;
         }
         // Stay open: the scene answers with 'event:outcome'.
@@ -119,6 +121,7 @@ export class EventModalController {
 
     private dismiss(): void {
         if (this.overlay) this.overlay.hidden = true;
+        this.bus.emit('intent:pause-change', { source: 'event', paused: false });
         this.bus.emit('intent:event-dismiss', undefined);
     }
 }

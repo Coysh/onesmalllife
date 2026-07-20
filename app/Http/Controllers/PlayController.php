@@ -153,7 +153,18 @@ class PlayController extends Controller
         // Record how this stage ended before its resources are cleared — this
         // is what lets the ending reflect the whole lineage rather than only
         // the traits picked up in stages 1–2.
-        $state['chronicle'][$current->value] = $state['resources'] ?? [];
+        $allStageState = (array) ($state['stageState'] ?? []);
+        $stageState = (array) ($allStageState[$current->value] ?? []);
+        $state['chronicle'][$current->value] = array_merge($state['resources'] ?? [], [
+            // Counts, not the objects: the epilogue wants "what did you do",
+            // and the full records stay in stageState.
+            'colonies' => count($stageState['colonies'] ?? []),
+            'contacts' => count(array_filter(
+                $stageState['rivals'] ?? [],
+                fn ($r) => str_starts_with((string) ($r['id'] ?? ''), 'native:'),
+            )),
+            'worldsSeen' => count($stageState['encountered'] ?? []),
+        ]);
 
         if ($next === null) {
             $campaign->saves()->updateOrCreate(

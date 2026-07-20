@@ -43,9 +43,21 @@ export interface SaveSnapshot {
     // Creature: hunger/health/nourishment). Kept generic so each stage stores
     // its own; the server validates every value is a bounded number.
     resources: Record<string, number>;
+    /**
+     * Per-stage state beyond plain resources — the charted map, colonies, and
+     * powers met. Keyed by stage id in the save so each stage keeps its own.
+     */
+    stageState?: object;
 }
 
 export type SaveStatus = 'saving' | 'saved' | 'error';
+export type PauseSource = 'manual' | 'event' | 'creature-builder';
+export interface CreatureBuildView {
+    version: 1;
+    equipped: { locomotion: string; feeding: string; adaptation: string };
+    unlocked: string[];
+    collected: string[];
+}
 
 export interface TraitEntry {
     id: string;
@@ -128,7 +140,8 @@ export interface ManagementUpdate {
  * bar. `kind` 'rival' actions are diplomacy (the bar attaches the rival id).
  */
 export interface SelectionView {
-    kind: 'home' | 'site' | 'rival';
+    /** 'colony' is a settled system: it carries its own per-colony actions. */
+    kind: 'home' | 'site' | 'rival' | 'colony';
     id: string;
     label: string;
     sublabel: string | null;
@@ -191,6 +204,7 @@ export interface GameEventMap {
     'onboarding:show': OnboardingView;
     /** Creature stage start: ask the player to pick a diet. */
     'creature:choose-diet': void;
+    'creature:build': { build: CreatureBuildView; newlyUnlocked?: string };
     /**
      * Creature stage start, after diet: shape the body your cell grew into by
      * taking one adaptation for free. The design carries forward from Stage 1
@@ -201,6 +215,8 @@ export interface GameEventMap {
     'sfx': { name: string };
     'game:pause': void;
     'game:resume': void;
+    'intent:pause-change': { source: PauseSource; paused: boolean };
+    'game:pause-state': { paused: boolean; sources: PauseSource[] };
     'intent:pause': void;
     'intent:resume': void;
     'intent:set-speed': { multiplier: number };
@@ -209,7 +225,9 @@ export interface GameEventMap {
     'intent:retry': void;
     /** Player picked how their creature feeds. */
     'intent:choose-diet': { diet: 'herbivore' | 'carnivore' };
-    'intent:management-action': { actionId: string; rivalId?: string };
+    'intent:creature-build': { build: CreatureBuildView };
+    'intent:open-creature-builder': void;
+    'intent:management-action': { actionId: string; rivalId?: string; siteId?: string };
     /** Focus the map on where a decision is taken ('home' / 'site:<id>'). */
     'intent:locate': { anchor: string };
     'intent:event-choice': { index: number };

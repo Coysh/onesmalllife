@@ -27,6 +27,10 @@ export interface TerrainFeature {
     x: number;
     y: number;
     scale: number;
+    /** Gameplay vegetation; decorative trees/rocks intentionally omit these. */
+    edible?: boolean;
+    foodValue?: number;
+    regrowSeconds?: number;
 }
 
 /** An impassable pond/lake, tested with ellipse containment. */
@@ -182,12 +186,16 @@ export function generateTerrain(seed: string, width: number, height: number, fea
         const y = m + rng.next() * (height - m * 2);
         if (inWater(waters, x, y, 30)) continue;
         const kind = pickFeatureKind(rng, biomeAt(partial, x, y));
+        const edible = kind === 'grass' || kind === 'flower' || kind === 'bush';
+        const foodValue = kind === 'grass' ? 0.6 : kind === 'flower' ? 0.8 : kind === 'bush' ? 1.4 : undefined;
+        const regrowSeconds = kind === 'grass' ? 14 : kind === 'flower' ? 18 : kind === 'bush' ? 25 : undefined;
         features.push({
             kind,
             variant: rng.int(0, VARIANT_COUNT[kind]),
             x,
             y,
             scale: 0.8 + rng.next() * 0.5,
+            ...(edible ? { edible, foodValue, regrowSeconds } : {}),
         });
     }
 

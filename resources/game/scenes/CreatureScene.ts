@@ -25,8 +25,16 @@ import {
     isCreatureStageFailed,
     type CreatureVitals,
 } from '../systems/creatureVitals';
-import type { EventBus } from '../bootstrap/events';
+import type { EventBus, PauseSource } from '../bootstrap/events';
 import type { AppearanceV2 } from '../data/cell-parts';
+import { CREATURE_PART_BY_ID, CREATURE_PART_SLOTS, creatureDiet, type CreaturePartSlot } from '../data/creature-parts';
+
+export interface CreatureBuildState {
+    version: 1;
+    equipped: Record<CreaturePartSlot, string>;
+    unlocked: string[];
+    collected: string[];
+}
 
 export interface CreatureSceneData {
     bus: EventBus;
@@ -37,6 +45,7 @@ export interface CreatureSceneData {
     palette?: OrganismPalette;
     appearance?: AppearanceV2;
     diet?: 'herbivore' | 'carnivore';
+    stageState?: CreatureBuildState;
 }
 
 /** A nest plus its live scene state: finite food and minimap discovery. */
@@ -45,6 +54,7 @@ interface NestState {
     discovered: boolean;
     foods: Food[];
 }
+interface RelicState { id: string; marker: Phaser.GameObjects.Container; }
 
 /**
  * Stage 2 — Creature. A big top-down scrolling world (WORLD.creatureWidth×
@@ -65,11 +75,14 @@ export class CreatureScene extends Phaser.Scene {
     private appearance?: AppearanceV2;
     private diet: 'herbivore' | 'carnivore' | null = null;
     private awaitingDiet = false;
+    private build?: CreatureBuildState;
 
     private rng!: Rng;
     private terrain!: Terrain;
     private creature!: Creature;
     private nests: NestState[] = [];
+    private vegetation: Food[] = [];
+    private relics: RelicState[] = [];
     private wilds: WildCreature[] = [];
     private kin: WildCreature[] = [];
     /** Starting head-count per herbivore species — the ceiling that population
@@ -90,7 +103,7 @@ export class CreatureScene extends Phaser.Scene {
     private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
     private pointerActive = false;
     private speedMultiplier = 1;
-    private paused = false;
+    private pauseSources = new Set<PauseSource>();
     private ended = false;
     private hudAccumulator = 0;
     private minimapAccumulator = 0;
@@ -108,6 +121,7 @@ export class CreatureScene extends Phaser.Scene {
         this.palette = data.palette;
         this.appearance = data.appearance;
         this.diet = data.diet ?? null;
+        this.build = data.stageState;
     }
 
     create(): void {
@@ -115,6 +129,7 @@ export class CreatureScene extends Phaser.Scene {
         this.vitals = { ...initialCreatureVitals(), ...this.initialResources };
         this.owned = new Set(this.inherited);
         this.tuning = resolveCreatureTuning(this.traitEngine.aggregateEffects(this.owned));
+        if (this.build) this.applyBuildEffects();
         this.ended = false;
         this.minimapAccumulator = 0;
 
@@ -135,6 +150,8 @@ export class CreatureScene extends Phaser.Scene {
         this.creature.applyVisuals(this.traitEngine.aggregateVisuals(this.owned));
 
         this.spawnNests();
+        this.spawnVegetation();
+        this.spawnRelics();
         this.spawnWildlife(W, H);
         this.packSize = 0;
         this.currentThreat = null;
@@ -155,11 +172,9 @@ export class CreatureScene extends Phaser.Scene {
         this.input.on('pointerdown', () => (this.pointerActive = true));
         this.input.on('pointerup', () => (this.pointerActive = false));
 
-        this.bus.on('intent:pause', () => {
-            this.paused = true;
-            this.emitSnapshot();
-        });
-        this.bus.on('intent:resume', () => (this.paused = false));
+        this.bus.on('intent:pause', () => this.setPauseSource('manual', true));
+        this.bus.on('intent:resume', () => this.setPauseSource('manual', false));
+        this.bus.on('intent:pause-change', ({ source, paused }) => this.setPauseSource(source, paused));
         this.bus.on('intent:set-speed', ({ multiplier }) => (this.speedMultiplier = multiplier));
         this.bus.on('intent:acquire-trait', ({ traitId }) => this.acquireTrait(traitId));
         this.bus.on('intent:retry', () => this.retry());
@@ -183,11 +198,23 @@ export class CreatureScene extends Phaser.Scene {
         // restore a saved choice). The sim waits on the choice.
         this.bus.on('intent:choose-diet', ({ diet }) => this.chooseDiet(diet));
         this.bus.on('intent:choose-adaptation', ({ traitId }) => this.chooseAdaptation(traitId));
-        if (this.diet) {
+        this.bus.on('intent:creature-build', ({ build }) => this.chooseBuild(build));
+        this.bus.on('intent:open-creature-builder', () => {
+            if (this.build) this.bus.emit('creature:build', { build: this.build });
+        });
+        if (this.build) {
+            this.diet = creatureDiet(this.build.equipped);
+            this.showCreatureOnboarding();
+        } else if (this.diet) {
             this.showCreatureOnboarding();
         } else {
             this.awaitingDiet = true;
-            this.bus.emit('creature:choose-diet', undefined);
+            this.bus.emit('creature:build', { build: {
+                version: 1,
+                equipped: { locomotion: 'steady-legs', feeding: 'grazing-jaws', adaptation: 'watchful-senses' },
+                unlocked: ['steady-legs', 'grazing-jaws', 'hunting-fangs', 'watchful-senses'],
+                collected: [],
+            } });
         }
 
         this.emitHud();
@@ -198,8 +225,23 @@ export class CreatureScene extends Phaser.Scene {
     private chooseDiet(diet: 'herbivore' | 'carnivore'): void {
         if (this.diet) return;
         this.diet = diet;
+        this.build = {
+            version: 1,
+            equipped: { locomotion: 'steady-legs', feeding: diet === 'carnivore' ? 'hunting-fangs' : 'grazing-jaws', adaptation: 'watchful-senses' },
+            unlocked: ['steady-legs', 'grazing-jaws', 'hunting-fangs', 'watchful-senses'],
+            collected: [],
+        };
+        this.applyBuildEffects();
         this.emitSnapshot();
         this.offerAdaptation();
+    }
+
+    private chooseBuild(build: CreatureBuildState): void {
+        this.build = build;
+        this.diet = creatureDiet(build.equipped);
+        this.recomputeTuning();
+        this.applyBuildEffects();
+        this.beginStage();
     }
 
     /**
@@ -247,6 +289,19 @@ export class CreatureScene extends Phaser.Scene {
         this.showCreatureOnboarding();
     }
 
+    private applyBuildEffects(): void {
+        if (!this.build) return;
+        let speed = 1;
+        let hungerRise = 0;
+        for (const slot of CREATURE_PART_SLOTS) {
+            const effects = CREATURE_PART_BY_ID[this.build.equipped[slot]]?.effects;
+            if (!effects) continue;
+            speed += effects.speedMultiplier ?? 0;
+            hungerRise += effects.hungerRisePerSec ?? 0;
+        }
+        this.tuning = { ...this.tuning, speed: Math.max(80, this.tuning.speed * speed), hungerRisePerSec: Math.max(0.1, this.tuning.hungerRisePerSec + hungerRise) };
+    }
+
     /** First-time coach marks that explain how Stage 2 plays (diet-aware). */
     private showCreatureOnboarding(): void {
         const hunt = this.diet === 'carnivore';
@@ -256,8 +311,8 @@ export class CreatureScene extends Phaser.Scene {
                 { id: 'move', title: 'A wider world', text: 'Steer with WASD or the arrow keys, or hold the pointer to swim toward it. Roam the land to survive and raise your young.' },
                 { id: 'feed', title: hunt ? 'Hunt to feed' : 'Forage to feed', text: hunt
                     ? 'As a carnivore, chase and catch the grazing creatures for rich meals — plants barely sustain you. Fullness (top-left) drops as you go; let it empty and your health drains.'
-                    : 'As a herbivore, graze the food at nests scattered across the map. Fullness (top-left) drops as you go; let it empty and your health drains.' },
-                { id: 'grow', title: 'Evolve as you feed', text: 'Every meal banks evolution — open Traits (bottom-right) to buy adaptations like faster legs or stronger jaws.' },
+                    : 'As a herbivore, graze the visible grass, flowers and berry bushes. Fullness (top-left) drops as you go; let it empty and your health drains.' },
+                { id: 'grow', title: 'Shape your creature', text: 'Open Creature (bottom-right) to review your parts. Relics hidden across the land unlock new choices.' },
                 { id: 'kin', title: 'Kin & predators', text: 'Meet others of your kind to form a pack that helps raise your young. Beware territorial predators guarding their dens.' },
             ],
         });
@@ -317,6 +372,34 @@ export class CreatureScene extends Phaser.Scene {
             }
             return { nest, discovered: false, foods };
         });
+    }
+
+    /** Vegetation is the herbivore's primary, visible food loop. */
+    private spawnVegetation(): void {
+        this.vegetation = this.terrain.features
+            .filter((feature) => feature.edible)
+            .map((feature) => new Food(this, feature.x, feature.y, feature.foodValue, feature.regrowSeconds));
+    }
+
+    private spawnRelics(): void {
+        const rng = new Rng(`${this.seed}:creature-relics`);
+        const collected = new Set(this.build?.collected ?? []);
+        this.relics = [];
+        for (const id of ['bounding-legs', 'endurance-feet', 'grinding-molars', 'serrated-fangs', 'thick-hide', 'keen-eyes']) {
+            let x = this.bounds.left;
+            let y = this.bounds.top;
+            for (let tries = 0; tries < 50; tries++) {
+                x = this.bounds.left + rng.next() * this.bounds.width;
+                y = this.bounds.top + rng.next() * this.bounds.height;
+                if (!inWater(this.terrain.waters, x, y, 50) && Math.hypot(x - WORLD.creatureWidth / 2, y - WORLD.creatureHeight / 2) > 700) break;
+            }
+            if (collected.has(id)) continue;
+            const glow = this.add.circle(0, 0, 22, COLORS.evolution, 0.14);
+            const shard = this.add.triangle(0, 0, 0, 17, -11, -12, 11, -12, COLORS.evolution);
+            const marker = this.add.container(x, y, [glow, shard]).setDepth(8);
+            this.tweens.add({ targets: marker, y: y - 8, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+            this.relics.push({ id, marker });
+        }
     }
 
     /** Herbivore herds at nests, predators in territories, kin roaming. */
@@ -422,7 +505,7 @@ export class CreatureScene extends Phaser.Scene {
     }
 
     update(_time: number, delta: number): void {
-        if (this.paused || this.ended || this.awaitingDiet) return;
+        if (this.pauseSources.size > 0 || this.ended || this.awaitingDiet) return;
         const dt = (delta / 1000) * this.speedMultiplier;
 
         const { vx, vy } = this.readInput();
@@ -445,6 +528,22 @@ export class CreatureScene extends Phaser.Scene {
                     this.bus.emit('sfx', { name: 'absorb' });
                 }
             }
+        }
+
+        // Grazing the plants in the landscape is reliable nourishment; meat
+        // specialists can still use it as emergency hunger relief only.
+        for (const plant of this.vegetation) {
+            plant.update(dt);
+            if (plant.consumed || !withinRange(this.creature.x, this.creature.y, plant.x, plant.y, this.creature.radius + CREATURE.foodRadius + CREATURE.bitePadding)) continue;
+            plant.eat();
+            const feeding = this.build ? CREATURE_PART_BY_ID[this.build.equipped.feeding] : undefined;
+            const forage = feeding?.effects.forageMultiplier ?? 1;
+            this.vitals = eatWith(this.vitals, this.tuning, this.diet === 'carnivore' ? plant.foodValue * 0.25 : plant.foodValue * forage);
+            this.bus.emit('sfx', { name: 'absorb' });
+        }
+
+        for (const relic of [...this.relics]) {
+            if (withinRange(this.creature.x, this.creature.y, relic.marker.x, relic.marker.y, this.creature.radius + 30)) this.collectRelic(relic);
         }
 
         // Wild species: herbivores flee, predators defend their territory.
@@ -507,6 +606,7 @@ export class CreatureScene extends Phaser.Scene {
                 this.lastHitAt = _time;
                 this.vitals = damageCreature(this.vitals, wild.def.damage);
                 this.knockback(wild);
+                wild.recoilFrom(this.creature.x, this.creature.y);
                 this.cameras.main.shake(120, 0.006);
                 this.bus.emit('sfx', { name: 'hit' });
             }
@@ -567,6 +667,12 @@ export class CreatureScene extends Phaser.Scene {
             if (!withinRange(this.creature.x, this.creature.y, wild.x, wild.y, CREATURE.senseRadius)) continue;
             entries.push({ x: wild.x, y: wild.y, color: COLORS.danger, size: 2.5 });
         }
+        const sense = CREATURE.senseRadius + (this.build ? CREATURE_PART_BY_ID[this.build.equipped.adaptation]?.effects.senseRadius ?? 0 : 0);
+        for (const relic of this.relics) {
+            if (withinRange(this.creature.x, this.creature.y, relic.marker.x, relic.marker.y, sense)) {
+                entries.push({ x: relic.marker.x, y: relic.marker.y, color: COLORS.evolution, size: 2.5 });
+            }
+        }
         this.minimap.update(entries);
     }
 
@@ -583,10 +689,10 @@ export class CreatureScene extends Phaser.Scene {
             stage: 'Stage 2 · Creature',
             energy: Math.round(100 - this.vitals.hunger), // Fullness
             integrity: Math.round(this.vitals.health),
-            evolution: Math.round(this.vitals.nourishment * 10) / 10,
+            evolution: this.build?.collected.length ?? 0,
             energyLabel: 'Fullness',
             integrityLabel: 'Health',
-            evolutionLabel: 'Growth',
+            evolutionLabel: 'Parts',
             objectiveLabel: `Forage to raise young (${Math.floor(this.vitals.nourishment)}/${CREATURE.objectiveTarget})` + (this.packSize > 0 ? ` · pack ${this.packSize}` : ''),
             objectiveProgress: creatureObjectiveProgress(this.vitals),
             threat: this.currentThreat ?? (this.vitals.hunger > 80 ? 'Starving — find a nest' : null),
@@ -653,6 +759,20 @@ export class CreatureScene extends Phaser.Scene {
         this.emitSnapshot();
     }
 
+    private collectRelic(relic: RelicState): void {
+        relic.marker.destroy();
+        this.relics = this.relics.filter((item) => item !== relic);
+        const current = this.build!;
+        this.build = {
+            ...current,
+            unlocked: [...new Set([...current.unlocked, relic.id])],
+            collected: [...new Set([...current.collected, relic.id])],
+        };
+        this.bus.emit('sfx', { name: 'evolve' });
+        this.emitSnapshot();
+        this.bus.emit('creature:build', { build: this.build, newlyUnlocked: relic.id });
+    }
+
     private emitSnapshot(): void {
         if (this.ended && !isCreatureStageComplete(this.vitals)) return;
         this.bus.emit('save:snapshot', {
@@ -666,7 +786,15 @@ export class CreatureScene extends Phaser.Scene {
                 evolution: this.vitals.evolution,
                 ...(this.diet ? { diet: this.diet === 'carnivore' ? 1 : 0 } : {}),
             },
+            ...(this.build ? { stageState: this.build } : {}),
         });
+    }
+
+    private setPauseSource(source: PauseSource, paused: boolean): void {
+        if (paused) this.pauseSources.add(source);
+        else this.pauseSources.delete(source);
+        this.bus.emit('game:pause-state', { paused: this.pauseSources.size > 0, sources: [...this.pauseSources] });
+        if (source === 'manual' && paused) this.emitSnapshot();
     }
 
     private completeStage(): void {

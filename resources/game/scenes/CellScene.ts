@@ -27,7 +27,7 @@ import {
     isStageFailed,
     type Vitals,
 } from '../systems/cellVitals';
-import type { EventBus } from '../bootstrap/events';
+import type { EventBus, PauseSource } from '../bootstrap/events';
 
 export interface CellSceneData {
     bus: EventBus;
@@ -79,7 +79,7 @@ export class CellScene extends Phaser.Scene {
     private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
     private pointerActive = false;
     private speedMultiplier = 1;
-    private paused = false;
+    private pauseSources = new Set<PauseSource>();
     private ended = false;
     private hudAccumulator = 0;
     private minimapAccumulator = 0;
@@ -178,11 +178,9 @@ export class CellScene extends Phaser.Scene {
         this.input.on('pointerup', () => (this.pointerActive = false));
 
         // DOM → scene intents.
-        this.bus.on('intent:pause', () => {
-            this.paused = true;
-            this.emitSnapshot(); // pausing is a safe point to autosave
-        });
-        this.bus.on('intent:resume', () => (this.paused = false));
+        this.bus.on('intent:pause', () => this.setPauseSource('manual', true));
+        this.bus.on('intent:resume', () => this.setPauseSource('manual', false));
+        this.bus.on('intent:pause-change', ({ source, paused }) => this.setPauseSource(source, paused));
         this.bus.on('intent:set-speed', ({ multiplier }) => (this.speedMultiplier = multiplier));
         this.bus.on('intent:acquire-trait', ({ traitId }) => this.acquireTrait(traitId));
         this.bus.on('intent:retry', () => {
@@ -350,7 +348,7 @@ export class CellScene extends Phaser.Scene {
     }
 
     update(_time: number, delta: number): void {
-        if (this.paused || this.ended) return;
+        if (this.pauseSources.size > 0 || this.ended) return;
         const dt = (delta / 1000) * this.speedMultiplier;
 
         const { vx, vy } = this.readInput();
@@ -364,7 +362,7 @@ export class CellScene extends Phaser.Scene {
             if (withinRange(this.cell.x, this.cell.y, mote.x, mote.y, reach)) {
                 const multiplier = mote.rich ? CELL.richMoteMultiplier : 1;
                 this.spawnBurst(mote.x, mote.y, mote.rich ? COLORS.energy : COLORS.food, mote.rich ? 10 : 6);
-                mote.absorb();
+                mote.absorb((x, y) => this.isSafeMoteSpawn(x, y));
                 this.vitals = absorbMote(this.vitals, this.tuning, multiplier);
                 this.bus.emit('sfx', { name: mote.rich ? 'absorb-rich' : 'absorb' });
                 this.checkGrowth(_time);
@@ -498,7 +496,7 @@ export class CellScene extends Phaser.Scene {
     private emitHud(): void {
         const next = nextTierAt(this.vitals.absorbed);
         const objectiveLabel = next !== null
-            ? `Grow — size tier ${this.tier}/3 (${this.vitals.absorbed}/${next} to grow)`
+            ? `Grow — size tier ${this.tier}/${CELL.tierThresholds.length} (${this.vitals.absorbed}/${next} to grow)`
             : `Thrive at full size (${this.vitals.absorbed}/${CELL.objectiveTarget})`;
         this.bus.emit('hud:update', {
             species: this.species,
@@ -513,6 +511,19 @@ export class CellScene extends Phaser.Scene {
             objectiveProgress: objectiveProgress(this.vitals),
             threat: this.currentThreat ?? (this.vitals.energy < 20 ? 'Low energy — find nutrients' : null),
         });
+    }
+
+    /** Excludes the player and toxins when a consumed nutrient returns. */
+    private isSafeMoteSpawn(x: number, y: number): boolean {
+        if (withinRange(x, y, this.cell.x, this.cell.y, this.cell.radius + 100)) return false;
+        return !this.hazards.some((hazard) => withinRange(x, y, hazard.x, hazard.y, hazard.radius + CELL.moteRadius + 20));
+    }
+
+    private setPauseSource(source: PauseSource, paused: boolean): void {
+        if (paused) this.pauseSources.add(source);
+        else this.pauseSources.delete(source);
+        this.bus.emit('game:pause-state', { paused: this.pauseSources.size > 0, sources: [...this.pauseSources] });
+        if (source === 'manual' && paused) this.emitSnapshot();
     }
 
     private emitSnapshot(): void {

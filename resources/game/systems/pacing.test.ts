@@ -25,9 +25,20 @@ import { canEat } from './cellGrowth';
 
 const stages = stagesData.stages as unknown as Record<string, StageDef>;
 
-/** Target band: every stage should take roughly 5–8 minutes of sim time. */
-const MIN_SECONDS = 240;
-const MAX_SECONDS = 600;
+/**
+ * Target band per stage, in sim-seconds. Most stages sit at roughly 5–8
+ * minutes. Space is the finale and a sandbox: the design brief asks for a much
+ * longer stage, and it ends when the player chooses to send the last ship
+ * rather than the moment the number is met — so its band is far wider.
+ */
+const BANDS: Record<string, { min: number; max: number }> = {
+    tribe: { min: 240, max: 600 },
+    civilisation: { min: 240, max: 600 },
+    planetary: { min: 240, max: 600 },
+    space: { min: 600, max: 2400 },
+};
+/** The longest any stage may take — the simulation's hard stop. */
+const SIM_LIMIT = 2400;
 
 /**
  * A scripted "reasonable player": once per second, take the first affordable
@@ -42,7 +53,7 @@ function simulate(def: StageDef): { seconds: number; state: ManagementState } {
     const raidIntervalSec = 20;
     let raidClock = 0;
 
-    for (let seconds = 1; seconds <= MAX_SECONDS + 120; seconds++) {
+    for (let seconds = 1; seconds <= SIM_LIMIT + 120; seconds++) {
         state = tickManagement(state, 1, def);
         state = tickRivals(state, 1);
         state = emergeRivals(state, seconds).state;
@@ -72,6 +83,9 @@ function simulate(def: StageDef): { seconds: number; state: ManagementState } {
         // One decision per second at most (humans read before clicking).
         for (const action of def.actions) {
             if (!canTakeAction(state, def, action.id)) continue;
+            // Taking the helm is a mode switch, not an economic decision — a
+            // scripted player models the economy, so skip it.
+            if (action.special === 'flight') continue;
             if (action.special === 'scout') {
                 // Scout only while something findable is still hidden.
                 const hiddenRival = state.rivals.some((r) => r.present && !r.discovered);
@@ -95,14 +109,20 @@ function simulate(def: StageDef): { seconds: number; state: ManagementState } {
     return { seconds: Infinity, state };
 }
 
-describe('strategic stage pacing (5–8 minute band)', () => {
-    for (const id of ['tribe', 'civilisation', 'planetary', 'space']) {
-        it(`${id} completes in ${MIN_SECONDS}–${MAX_SECONDS}s for a scripted player`, () => {
+describe('strategic stage pacing (per-stage band)', () => {
+    for (const [id, band] of Object.entries(BANDS)) {
+        it(`${id} completes in ${band.min}–${band.max}s for a scripted player`, () => {
             const { seconds } = simulate(stages[id]);
-            expect(seconds, `${id} took ${seconds}s`).toBeGreaterThanOrEqual(MIN_SECONDS);
-            expect(seconds, `${id} took ${seconds}s`).toBeLessThanOrEqual(MAX_SECONDS);
+            expect(seconds, `${id} took ${seconds}s`).toBeGreaterThanOrEqual(band.min);
+            expect(seconds, `${id} took ${seconds}s`).toBeLessThanOrEqual(band.max);
         });
     }
+
+    // The finale must not evict the player the instant the number is met.
+    it('space ends on the player\'s command, not automatically', () => {
+        expect(stages.space.mechanics?.endOnDemand).toBe(true);
+        expect(stages.space.actions.some((a) => a.special === 'finish')).toBe(true);
+    });
 });
 
 describe('direct-control stage pacing (derived bounds)', () => {

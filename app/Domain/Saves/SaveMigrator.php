@@ -24,6 +24,33 @@ class SaveMigrator
                 'progress' => ['currentStage' => 'cell', 'completed' => false, 'endingId' => null],
                 'resources' => [],
             ], $s),
+
+            // v1 → v2: add structured per-stage state. A Creature save gets a
+            // usable historic build immediately; legacy traits remain intact.
+            2 => static function (array $s): array {
+                $state = array_replace([
+                    'stageState' => new \stdClass(),
+                    'chronicle' => new \stdClass(),
+                ], $s);
+                $stageState = is_array($state['stageState']) ? $state['stageState'] : [];
+                $stage = data_get($state, 'progress.currentStage');
+                if ($stage === 'creature' && !isset($stageState['creature'])) {
+                    $diet = data_get($state, 'resources.diet');
+                    $feeding = $diet === 1 ? 'hunting-fangs' : 'grazing-jaws';
+                    $stageState['creature'] = [
+                        'version' => 1,
+                        'equipped' => [
+                            'locomotion' => 'steady-legs',
+                            'feeding' => $feeding,
+                            'adaptation' => 'watchful-senses',
+                        ],
+                        'unlocked' => ['steady-legs', 'grazing-jaws', 'hunting-fangs', 'watchful-senses'],
+                        'collected' => [],
+                    ];
+                }
+                $state['stageState'] = $stageState === [] ? new \stdClass() : $stageState;
+                return $state;
+            },
         ];
     }
 
