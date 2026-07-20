@@ -10,7 +10,7 @@
 | Interactive UI | TypeScript controllers (no SPA framework) |
 | Gameplay | Phaser 4 scenes |
 | Build | Vite 8 |
-| Database | PostgreSQL 16 |
+| Database | MySQL 8 |
 | PHP tests | Pest |
 | TS tests | Vitest |
 | E2E (later) | Playwright (a few critical journeys) |

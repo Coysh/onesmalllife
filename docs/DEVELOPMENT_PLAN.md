@@ -34,7 +34,7 @@ Only after Phase 6 should Tribe or later-stage artwork begin.
 
 ## What is already done (this session)
 
-- Laravel 13 + Breeze (Blade) on PostgreSQL 16; 28 Pest tests green.
+- Laravel 13 + Breeze (Blade) on MySQL 8; Pest suite green.
 - Tidepool tokens (`resources/css/tokens.css`) + Tailwind theme; self-hosted
   fonts; base layer + ambient motion (reduced-motion aware).
 - Reusable Blade primitives: buttons, fields, labels, errors, panels, brand
@@ -81,8 +81,9 @@ Only after Phase 6 should Tribe or later-stage artwork begin.
   event bridge complexity). Mitigate: thin typed bridge; measure canvas rect.
 - Save validation surface is large; untrusted client state. Mitigate: strict
   form requests + schema versioning + trait projection table.
-- Postgres JSON vs SQLite test DB divergence (see DECISIONS D3). Mitigate: a
-  Postgres CI job.
+- Test DB (SQLite) vs dev/production DB (MySQL) divergence. Lower risk since
+  the switch to MySQL (DECISIONS D20): there is no driver-specific SQL in the
+  codebase and JSON is only touched via Eloquent casts. Mitigate: a MySQL CI job.
 - Developer TS unfamiliarity. Mitigate: small readable files, heavy tests, no
   clever abstractions.
 

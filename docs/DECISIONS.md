@@ -3,6 +3,29 @@
 A running log of decisions and the reasoning behind them. Newest at the top.
 Format: **Decision** — context → choice → consequence.
 
+## 2026-07-20 — Database switch
+
+### D20. Database: MySQL, superseding D2 (PostgreSQL)
+Ploi provisions MySQL by default, so Postgres meant selecting it at server
+build time and reinstalling by hand if missed. Nothing in the app justified
+that cost: an audit found **no raw SQL anywhere** (`DB::raw`, `whereRaw`,
+`selectRaw`, `DB::statement` all absent), and the two `jsonb` columns
+(`campaign_saves.state`, `campaigns.appearance`) are read only through Eloquent
+`'array'` casts — never queried in SQL, so no `@>`/`jsonb` operators to port.
+Laravel's MySQL grammar compiles `jsonb()` to `json`, and the full schema was
+compiled through that grammar to confirm it emits valid DDL before switching.
+
+Consequence: `DB_CONNECTION=mysql` on port 3306; deployment no longer depends on
+overriding Ploi's default. **This also resolves the D3 caveat** — that entry
+warned SQLite test coverage doesn't prove Postgres behaviour, which was fair
+while Postgres-specific SQL was possible. With no driver-specific SQL in the
+codebase, the planned Postgres CI job is moot; a MySQL CI job is still worth
+having to catch driver-specific regressions before they reach production.
+
+Note: UUID primary keys are `char(36)` under InnoDB, which clusters on the PK,
+so random UUIDs scatter inserts. Irrelevant at current scale; if `campaigns`
+grows large, switch to `Str::orderedUuid()`.
+
 ## 2026-07-18 — Foundation session
 
 ### D1. Stack: Laravel 13 + Breeze (Blade) + Tailwind v3 + Phaser 4 + Vite
@@ -14,11 +37,13 @@ that a PHP developer can maintain. Breeze installed Tailwind **v3** (classic
 small TS controllers + Phaser.
 
 ### D2. Database: PostgreSQL locally and in production
+> **Superseded by D20 (2026-07-20) — the project now uses MySQL.**
 Chosen over the SQLite-local pattern so local matches the Ploi/VPS target
 exactly. Installed `postgresql@16` via Homebrew; app DB is `one_small_life`.
 Consequence: migrations and JSON columns are authored against Postgres.
 
 ### D3. Tests run on in-memory SQLite
+> **Caveat resolved by D20** — the codebase contains no driver-specific SQL.
 `phpunit.xml` keeps Laravel's default `DB_CONNECTION=sqlite`, `:memory:` for
 speed and isolation. Consequence: Postgres-specific SQL must be exercised
 separately (a CI job against Postgres is planned) — noted so we don't assume
@@ -32,7 +57,7 @@ as `"… Variable"`, so token font stacks lead with those names.
 
 ### D5. Node 20 via Homebrew
 The machine had Node 14 (too old for Vite 8 / Phaser tooling). Installed
-`node@20` (keg-only; add to PATH). Consequence: developers must have Node 18+.
+`node@20` (keg-only; add to PATH). Consequence: developers must have Node 20.19+ (Vite 8's floor).
 
 ### D6. Deterministic RNG foundation now
 Added `resources/game/lib/rng.ts` (mulberry32 + xmur3 seed hash) with Vitest

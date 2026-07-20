@@ -43,12 +43,12 @@ ending resolution, and opt-in unlisted sharing of a finished lineage. See
 ## Tech stack
 
 Laravel 13 · PHP 8.3+ · Laravel Breeze (Blade) · Tailwind CSS v3 · TypeScript ·
-Phaser 4 · Vite 8 · PostgreSQL 16 · Pest · Vitest · Playwright.
+Phaser 4 · Vite 8 · MySQL 8 · Pest · Vitest · Playwright.
 
 ## Local development
 
 Prerequisites: PHP 8.3+ (`composer.json` requires `^8.3`), Composer,
-**Node 20+** (Vite 8 requires 20.19+), PostgreSQL 16.
+**Node 20+** (Vite 8 requires 20.19+), MySQL 8.
 
 ```bash
 # 1. Dependencies
@@ -58,10 +58,10 @@ npm install
 # 2. Environment
 cp .env.example .env          # if you don't already have a .env
 php artisan key:generate
-# set DB_CONNECTION=pgsql and the one_small_life database in .env
+# set the one_small_life database credentials in .env (DB_CONNECTION=mysql)
 
 # 3. Database
-createdb one_small_life
+mysql -u root -p -e "CREATE DATABASE one_small_life CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 php artisan migrate
 
 # 4. Run (two terminals)
@@ -80,7 +80,9 @@ npm run test:e2e     # Playwright — full-journey / stage-progression specs
 npm run typecheck    # tsc --noEmit
 ```
 
-Pest runs against a separate test database; see `phpunit.xml`.
+Pest runs against in-memory SQLite (`phpunit.xml`), so it needs no local MySQL
+and leaves your dev database alone. The Playwright e2e specs do **not** — they
+register real accounts against whatever `.env` points at.
 
 ## Design system
 

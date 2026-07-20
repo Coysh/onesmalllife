@@ -3,7 +3,7 @@
 Deploying One Small Life to a VPS with [Ploi](https://ploi.io), auto-deploying
 from GitHub on push to `main`.
 
-The app is a plain Laravel monolith: PHP-FPM + Nginx + PostgreSQL, with assets
+The app is a plain Laravel monolith: PHP-FPM + Nginx + MySQL, with assets
 built by Vite at deploy time. Sessions, cache, and queue all sit on the database
 (`SESSION_DRIVER`/`CACHE_STORE`/`QUEUE_CONNECTION=database`), so **no Redis is
 required**.
@@ -21,11 +21,12 @@ Settings that matter:
 |---|---|
 | Server type | Web server |
 | PHP version | **8.3 or newer** (`composer.json` requires `^8.3`) |
-| Database | **PostgreSQL 16** — not the MySQL default |
+| Database | **MySQL 8** — Ploi's default, nothing to change |
 | Server size | 1 vCPU / 2 GB RAM is enough to start |
 
-> Pick PostgreSQL during provisioning. Ploi installs MySQL by default, and
-> switching afterwards means installing Postgres by hand.
+> MySQL is what Ploi installs by default, so the database needs no special
+> handling at provision time. (The project ran on PostgreSQL until 2026-07-20 —
+> see `DECISIONS.md` D20 for why it moved.)
 
 Provisioning takes a few minutes. Ploi emails you the database root credentials —
 keep them.
@@ -71,7 +72,10 @@ Ploi → server → **Databases → Create database**.
 - User: `one_small_life`
 - Password: generate a strong one and record it
 
-Ploi shows the connection host and port (Postgres defaults to `127.0.0.1:5432`).
+Ploi shows the connection host and port (MySQL defaults to `127.0.0.1:3306`).
+
+Create it with `utf8mb4` / `utf8mb4_unicode_ci` if Ploi offers the choice —
+species and campaign names are free text and users will put emoji in them.
 
 ## 6. Configure the environment
 
@@ -84,9 +88,9 @@ APP_ENV=production
 APP_DEBUG=false
 APP_URL=https://onesmalllife.com
 
-DB_CONNECTION=pgsql
+DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
-DB_PORT=5432
+DB_PORT=3306
 DB_DATABASE=one_small_life
 DB_USERNAME=one_small_life
 DB_PASSWORD=the-password-from-step-5
@@ -164,7 +168,7 @@ Notes:
   run migrations non-interactively in production.
 
 Click **Deploy now** and watch the log. Common first-deploy failures: Node too
-old (step 2), Postgres not installed (step 1), or `APP_KEY` not yet generated
+old (step 2), database credentials wrong (step 6), or `APP_KEY` not yet generated
 (step 6).
 
 ## 8. Enable auto-deploy
@@ -240,6 +244,6 @@ php artisan config:clear && php artisan config:cache
 ## Backups
 
 Campaign saves are the only irreplaceable data here, and they live entirely in
-Postgres. Set up Ploi → server → **Backups** against the `one_small_life`
+MySQL. Set up Ploi → server → **Backups** against the `one_small_life`
 database, to an off-server destination (S3, Backblaze, DigitalOcean Spaces).
 Daily is fine. Test a restore once — an untested backup is a guess.
