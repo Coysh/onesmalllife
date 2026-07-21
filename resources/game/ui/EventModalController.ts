@@ -33,6 +33,8 @@ export class EventModalController {
     private choicesEl: HTMLElement | null;
     /** True while showing a notice, whose button closes without a choice. */
     private dismissOnly = false;
+    /** Notices use this visual shell but must not acquire the event pause source. */
+    private pauseHeld = false;
 
     constructor(root: HTMLElement, private bus: EventBus) {
         this.overlay = root.querySelector('[data-overlay="event"]');
@@ -46,8 +48,9 @@ export class EventModalController {
         bus.on('notice:show', (n) => this.showNotice(n));
     }
 
-    private show(event: EventView): void {
-        this.bus.emit('intent:pause-change', { source: 'event', paused: true });
+    private show(event: EventView, pause = true): void {
+        this.pauseHeld = pause;
+        if (pause) this.bus.emit('intent:pause-change', { source: 'event', paused: true });
         this.dismissOnly = false;
         if (this.iconEl) {
             this.iconEl.textContent = event.icon ?? '❖';
@@ -104,7 +107,7 @@ export class EventModalController {
             description: notice.description,
             icon: notice.icon,
             choices: ['Understood'],
-        });
+        }, false);
         this.dismissOnly = true;
     }
 
@@ -112,7 +115,7 @@ export class EventModalController {
         if (this.dismissOnly) {
             this.dismissOnly = false;
             if (this.overlay) this.overlay.hidden = true;
-            this.bus.emit('intent:pause-change', { source: 'event', paused: false });
+            if (this.pauseHeld) this.bus.emit('intent:pause-change', { source: 'event', paused: false });
             return;
         }
         // Stay open: the scene answers with 'event:outcome'.
@@ -121,7 +124,7 @@ export class EventModalController {
 
     private dismiss(): void {
         if (this.overlay) this.overlay.hidden = true;
-        this.bus.emit('intent:pause-change', { source: 'event', paused: false });
+        if (this.pauseHeld) this.bus.emit('intent:pause-change', { source: 'event', paused: false });
         this.bus.emit('intent:event-dismiss', undefined);
     }
 }

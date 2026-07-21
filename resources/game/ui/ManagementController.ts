@@ -23,9 +23,11 @@ export class ManagementController {
         panel?.addEventListener('click', (e) => {
             const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-action-id]');
             if (!btn || btn.disabled) return;
-            // Anchored decisions are listed here for discoverability, but they
-            // are taken on the map — clicking travels there and selects it.
             if (btn.dataset.locate) {
+                // The sidebar is a real action surface on every strategic
+                // stage: complete an available anchored action, then take the
+                // player to the result instead of merely navigating there.
+                bus.emit('intent:management-action', { actionId: btn.dataset.actionId! });
                 bus.emit('intent:locate', { anchor: btn.dataset.locate });
             } else {
                 bus.emit('intent:management-action', { actionId: btn.dataset.actionId! });
@@ -169,9 +171,7 @@ export class ManagementController {
         card.className =
             'block w-full text-left rounded-md border border-ink-border bg-ink-2 p-3 transition duration-fast ' +
             'hover:border-brand disabled:opacity-disabled disabled:pointer-events-none';
-        // A located action stays clickable even when unaffordable — going to
-        // look at it is always allowed; only acting needs the resources.
-        card.disabled = a.taken || (!a.affordable && !a.locate);
+        card.disabled = a.taken || !a.affordable;
         if (a.locate) card.dataset.locate = a.locate;
 
         const top = document.createElement('div');
@@ -193,7 +193,7 @@ export class ManagementController {
         if (a.locationLabel) {
             const where = document.createElement('p');
             where.className = 'font-mono text-label uppercase tracking-[0.06em] text-content-4 mt-1';
-            where.textContent = a.taken ? a.locationLabel : `${a.locationLabel} — go there`;
+            where.textContent = a.taken ? a.locationLabel : `${a.locationLabel} — go there & act`;
             card.append(where);
         }
         return card;
